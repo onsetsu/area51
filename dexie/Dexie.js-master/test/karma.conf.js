@@ -6,7 +6,7 @@ module.exports = function (config) {
     basePath: '..',
     // Files to include
     files: karmaCommon.files.concat([
-      'dist/dexie.js',
+      //'dist/dexie.js',
       'test/bundle.js',
       { watched: true, included: false, served: true, pattern: 'test/worker.js' },
     ])
