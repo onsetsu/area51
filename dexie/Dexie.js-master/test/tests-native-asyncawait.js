@@ -3,7 +3,7 @@ import DexiePromise from './../src/helpers/promise.js';
 const {module, test, strictEqual, ok, notStrictEqual} = QUnit;
 import {promisedTest, spawnedTest} from './unittest-utils.js';
 
-const hasNativeAsyncFunctions = false;
+let hasNativeAsyncFunctions = false;
 try {
     hasNativeAsyncFunctions = !!new Function(`return (async ()=>{})();`)().then;
 } catch (e) {}
@@ -735,6 +735,8 @@ promisedTest ("Should be able to use some simpe native async await even without 
     })(trans));`))(ok, equal, Dexie, db)
 });
 
+*/
+
 const GlobalPromise = window.Promise;
 promisedTest ("Should behave outside transactions as well", async () => {
     if (!hasNativeAsyncFunctions) {
@@ -742,26 +744,28 @@ promisedTest ("Should behave outside transactions as well", async () => {
         return;
     }
 
-    await (new Function('ok', 'equal', 'Dexie', 'db', 'GlobalPromise',
+    await (new Function('ok', 'equal', 'DexiePromise', 'GlobalPromise',
     `async function doSomething() {
-        ok(!Dexie.currentTransaction, "Should be at global scope.");
-        ok(window.Promise !== Dexie.Promise, "window.Promise should be original");
+        ok(DexiePromise.PSD.global, "Should be at global scope.");
+        ok(window.Promise !== DexiePromise, "window.Promise should be original");
         ok(window.Promise === GlobalPromise, "window.Promise should be original indeed");
-        await db.items.get(1);
-        ok(!Dexie.currentTransaction, "Should be at global scope.");
+        await DexiePromise.resolve();
+        ok(DexiePromise.PSD.global, "Should be at global scope.");
         await 3;
-        ok(!Dexie.currentTransaction, "Should be at global scope.");
-        await db.items.put({id:1, aj: "aj"});
+        ok(DexiePromise.PSD.global, "Should be at global scope.");
+        await DexiePromise.resolve();
         ok(true, "Could put an item");
-        await db.items.update(1, {aj: "oj"});
+        await DexiePromise.resolve();
         ok(true, "Could query an item");
-        ok(!Dexie.currentTransaction, "Should be at global scope.");
+        ok(DexiePromise.PSD.global, "Should be at global scope.");
         await 4;
-        ok(!Dexie.currentTransaction, "Should be at global scope.");
+        ok(DexiePromise.PSD.global, "Should be at global scope.");
     }
+    
+    DexiePromise.newPSD(async () => {
+        ok(!DexiePromise.PSD.global)
+    })
 
     return doSomething();
-    `))(ok, equal, Dexie, db, GlobalPromise)
+    `))(ok, equal, DexiePromise, GlobalPromise)
 });
-
-*/
