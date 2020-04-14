@@ -1,4 +1,4 @@
-﻿import {DexiePromise} from './../src/helpers/promise.js';
+﻿import DexiePromise from './../src/helpers/promise.js';
 const {module, stop, start, asyncTest, equal, ok} = QUnit;
 
 function supportsDOMEvents() {
@@ -18,6 +18,7 @@ function createDirectlyResolvedPromise() {
 asyncTest("Promise basics", ()=>{
    new DexiePromise(resolve => resolve("value"))
    .then(value => {
+       // equal(2,2,'WRONG :)')
       equal(value, "value", "Promise should be resolved with 'value'");
    }).then(()=>{
       start(); 

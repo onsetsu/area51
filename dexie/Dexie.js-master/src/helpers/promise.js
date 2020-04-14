@@ -886,4 +886,4 @@ function globalError(err, promise) {
 
 export var rejection = DexiePromise.reject;
 
-export {DexiePromise};
+// export {DexiePromise as DexiePromise};
