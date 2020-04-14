@@ -25,7 +25,7 @@ debugger
     debugger
 })()
 `))(db);
-throw new Error();
+
 const signalError = e => {
     ok(false, `Error: ${e.stack || e}`);
 };
