@@ -1,18 +1,21 @@
-import Dexie from 'dexie';
-import {DexiePromise} from './../src/helpers/promise.js';
+// import Dexie from 'dexie';
+import DexiePromise from './../src/helpers/promise.js';
 const {module, test, strictEqual, ok, notStrictEqual} = QUnit;
-import {resetDatabase, spawnedTest, promisedTest} from './dexie-unittest-utils';
+import {promisedTest, spawnedTest} from './unittest-utils.js';
 
 const hasNativeAsyncFunctions = false;
 try {
     hasNativeAsyncFunctions = !!new Function(`return (async ()=>{})();`)().then;
 } catch (e) {}
 
+/*
 var db = new Dexie("TestDBTranx");
 db.version(1).stores({
     items: "id"
 });
+*/
 
+/*
 (new Function('db',`
 (async () => {
 debugger
@@ -25,17 +28,16 @@ debugger
     debugger
 })()
 `))(db);
+*/
 
 const signalError = e => {
     ok(false, `Error: ${e.stack || e}`);
 };
 
-module("asyncawait2", {
+module("native async/await", {
     setup: function (assert) {
         let done = assert.async();
-        resetDatabase(db).catch(function (e) {
-            ok(false, "Error resetting database: " + e.stack);
-        }).finally(done);
+        done();
     },
     teardown: function () {
     }
@@ -144,7 +146,7 @@ test("Should be able to use global Promise within nested transaction scopes", fu
                 return window.Promise.resolve().then(()=> {
                     notStrictEqual(DexiePromise.PSD, outerPSD, "outerPSD does not leak in 1");
                     strictEqual(Promise.PSD, innerPSD, "Transaction scopes should persist through Promise.resolve() 1");
-                    return db.items.add({ id: "foobar" });
+                    return window.Promise.resolve();
                 }).then(()=>{
                     return Promise.resolve();
                 }).then(()=>{
@@ -171,7 +173,7 @@ function callInNewPSD(cb) {
 //**************************************************************************************************************
 //********************************************** NEW TESTS *****************************************************
 //**************************************************************************************************************
-
+/*
 function mostNativePromise() {
     return crypto.subtle.digest("SHA-512", new Uint8Array([0]));
 }
@@ -762,3 +764,4 @@ promisedTest ("Should behave outside transactions as well", async () => {
     `))(ok, equal, Dexie, db, GlobalPromise)
 });
 
+*/

@@ -1,10 +1,7 @@
 **/tmp/
-samples/
-addons/
 *.njsproj
 .*
 *.log
 test/
 tools/
-bower.json
 src/

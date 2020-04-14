@@ -1,5 +1,4 @@
-﻿declare var global;
-export const keys = Object.keys;
+﻿export const keys = Object.keys;
 export const isArray = Array.isArray;
 const _global =
     typeof self !== 'undefined' ? self :

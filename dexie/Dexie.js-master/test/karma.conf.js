@@ -36,11 +36,9 @@ const karmaCommon = {
   files: [
     'node_modules/qunitjs/qunit/qunit.js',
     'test/karma-env.js',
-    { pattern: 'test/worker.js', watched: true, included: false, served: true },
     { pattern: 'test/tests-all.js', type: 'module', watched: true, included: true },
     { pattern: 'src/**/*.js', type: 'module', watched: true, included: false },
     { pattern: 'test/**/*.js', type: 'module', watched: true, included: false },
-    { watched: true, included: false, served: true, pattern: 'test/worker.js' },
   ],
 
   browsers: ['Chrome']
