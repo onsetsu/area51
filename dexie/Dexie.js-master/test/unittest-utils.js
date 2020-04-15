@@ -1,7 +1,7 @@
 ﻿import {awaitIterator} from "../src/helpers/yield-support.js";
 import DexiePromise, {rejection} from "../src/helpers/promise.js";
 
-const {module, test, strictEqual, ok, notStrictEqual, throws, todo} = QUnit;
+const {test, ok} = QUnit;
 
 function spawn(generatorFn, args, thiz) {
     try {
