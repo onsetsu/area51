@@ -1,7 +1,0 @@
-**/tmp/
-*.njsproj
-.*
-*.log
-test/
-tools/
-src/
