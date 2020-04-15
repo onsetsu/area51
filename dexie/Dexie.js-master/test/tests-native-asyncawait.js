@@ -588,6 +588,8 @@ promisedTest ("Should be able to use transpiled async await", async () => {
         ok(true, "PROMISE IS INCOMPATIBLE WITH INDEXEDDB (https://github.com/dfahlander/Dexie.js/issues/317). Ignoring test.");
     })
 });
+*/
+
 
 promisedTest ("Should be able to use some simpe native async await even without zone echoing ", async () => {
     if (!hasNativeAsyncFunctions) {
@@ -595,17 +597,17 @@ promisedTest ("Should be able to use some simpe native async await even without 
         return;
     }
 
-    await (new Function('ok', 'equal', 'Dexie', 'db',
-    `return db.transaction('r', db.items, trans=> (async (trans) => {
-        ok(Dexie.currentTransaction === trans, "Correct initial transaction.");
-        await Promise.all([1,2,3, db.items.get(2), Promise.resolve()]);
-        ok(Dexie.currentTransaction === trans, "Still same transaction 1 - after Promise.all(1,2,3,db.items.get(2))");
-        await db.items.get(1);
-        ok(Dexie.currentTransaction === trans, "Still same transaction 2 - after await db.items.get(1);");
-    })(trans));`))(ok, equal, Dexie, db)
+    await (function f(){
+        return DexiePromise.newPSD(trans=> (async (trans) => {
+            ok(!DexiePromise.PSD.global, "Correct (non-global) initial transaction.");
+            const psd = DexiePromise.PSD;
+            await Promise.all([1,2,3, DexiePromise.resolve(2), Promise.resolve()]);
+            strictEqual(DexiePromise.PSD, psd, "Still same transaction 1 - after Promise.all(1,2,3,db.items.get(2))");
+            await DexiePromise.resolve(1);
+            strictEqual(DexiePromise.PSD, psd, "Still same transaction 2 - after await db.items.get(1);");
+        })(trans));
+    })();
 });
-
-*/
 
 function unsupportedNativeAwait(e) {
     if (hasNativeAsyncFunctions)
