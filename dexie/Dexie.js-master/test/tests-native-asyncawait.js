@@ -1,6 +1,8 @@
 // import Dexie from 'dexie';
-import DexiePromise from './../src/helpers/promise.js';
-const {module, test, strictEqual, ok, notStrictEqual} = QUnit;
+import DexiePromise, {NativePromise} from './../src/helpers/promise.js';
+
+const {module, test, strictEqual, ok, notStrictEqual, config} = QUnit;
+config.testTimeout = 1000
 import {promisedTest, spawnedTest} from './unittest-utils.js';
 
 let hasNativeAsyncFunctions = false;
@@ -361,66 +363,68 @@ test("Must not leak PSD zone", async function(assert) {
     F(ok, equal, Dexie, db).catch(e => ok(false, e.stack || e)).then(done);
 });
 
+*/
+
 test("Must not leak PSD zone2", async function(assert) {
     let done = assert.async();
-    ok(Dexie.currentTransaction === null, "Should not have an ongoing transaction to start with");
+    const globalPSD = DexiePromise.PSD
+    ok(globalPSD.global, "Should not have an ongoing transaction to start with");
 
+    let otherZonePromise;
+    (()=>{
+        function promiseFlow () {
+            return NativePromise.resolve().then(()=>{
+                if(DexiePromise.PSD !== globalPSD) ok(false, "PSD zone leaked");
+                return new NativePromise(resolve => NativePromise.resolve().then(resolve));
+            });
+        }
+        otherZonePromise = promiseFlow();
+        for (let i=0;i<100;++i) {
+            otherZonePromise = otherZonePromise.then(promiseFlow);
+        }
+    })()
 
-    db.transaction('rw', db.items, ()=>{
-        let trans = Dexie.currentTransaction;
+    DexiePromise.newPSD(()=>{
+        let trans = Promise.PSD;
         ok(trans !== null, "Should have a current transaction");
-        let otherZonePromise;
-        Dexie.ignoreTransaction(()=>{
-            ok(Dexie.currentTransaction == null, "No Transaction in this zone");
-            function promiseFlow () {
-                return NativePromise.resolve().then(()=>{
-                    if(Dexie.currentTransaction !== null) ok(false, "PSD zone leaked");
-                    return new NativePromise(resolve => NativePromise.resolve().then(resolve));
-                });
-            };
-            otherZonePromise = promiseFlow();
-            for (let i=0;i<100;++i) {
-                otherZonePromise = otherZonePromise.then(promiseFlow);
-            }
-        });
+
         // In parallell with the above 2*100 async tasks are being executed and verified,
         // maintain the transaction zone below:
-        return db.items.get(1).then(()=>{ // Just to prohibit IDB bug in Safari - must use transaction in initial tick!
+        return Promise.resolve().then(()=>{ // Just to prohibit IDB bug in Safari - must use transaction in initial tick!
             return;
         }).then(()=> {
-            ok(Dexie.currentTransaction === trans, "Still same transaction 1");
+            ok(DexiePromise.PSD === trans, "Still same transaction 1");
             // Make sure native async functions maintains the zone:
-            let f = new Function('ok', 'equal', 'Dexie', 'trans','NativePromise', 'db',
-            `return (async ()=>{
-                ok(Dexie.currentTransaction === trans, "Still same transaction 1.1");
-                await Promise.resolve();
-                ok(Dexie.currentTransaction === trans, "Still same transaction 1.2");
-                await Dexie.Promise.resolve();
-                ok(Dexie.currentTransaction === trans, "Still same transaction 1.3");
-                await window.Promise.resolve();
-                ok(Dexie.currentTransaction === trans, "Still same transaction 1.4");
-                await db.items.get(1);
-            })()`);
-            return f(ok, equal, Dexie, trans, NativePromise, db);
+            let f = function f(){
+                return (async ()=>{
+                    ok(DexiePromise.PSD === trans, "Still same transaction 1.1");
+                    await Promise.resolve();
+                    ok(DexiePromise.PSD === trans, "Still same transaction 1.2");
+                    await DexiePromise.resolve();
+                    ok(DexiePromise.PSD === trans, "Still same transaction 1.3");
+                    await window.Promise.resolve();
+                    ok(DexiePromise.PSD === trans, "Still same transaction 1.4");
+                    await DexiePromise.resolve(1);
+                })()
+            };
+            return f();
         }).catch (unsupportedNativeAwait).then(()=>{
             // NativePromise
-            ok(Dexie.currentTransaction === trans, "Still same transaction 2");
+            ok(DexiePromise.PSD === trans, "Still same transaction 2");
             return Promise.resolve();
         }).then(()=>{
             // window.Promise
-            ok(Dexie.currentTransaction === trans, "Still same transaction 3");
-            return Dexie.Promise.resolve();
+            ok(DexiePromise.PSD === trans, "Still same transaction 3");
+            return DexiePromise.resolve();
         }).then(()=>{
             // Dexie.Promise
-            ok(Dexie.currentTransaction === trans, "Still same transaction 4");
+            ok(DexiePromise.PSD === trans, "Still same transaction 4");
             return otherZonePromise; // wait for the foreign zone promise to complete.
         }).then(()=>{
-            ok(Dexie.currentTransaction === trans, "Still same transaction 5");
+            ok(DexiePromise.PSD === trans, "Still same transaction 5");
         });
     }).catch(signalError).then(done);
 });
-
-*/
 
 test("Should be able to await Promise.all()", async (assert) => {
     let done = assert.async();
