@@ -173,7 +173,7 @@ function callInNewPSD(cb) {
 //**************************************************************************************************************
 //********************************************** NEW TESTS *****************************************************
 //**************************************************************************************************************
-/*
+
 function mostNativePromise() {
     return crypto.subtle.digest("SHA-512", new Uint8Array([0]));
 }
@@ -190,130 +190,7 @@ function fakeDBItemGet() {
     return DexiePromise.resolve();
 }
 
-test("Should be able to use native async await NEW DEXIEPROMISE w/o DEXIE", function(assert) {
-    let done = assert.async();
-    DexiePromise.resolve().then(()=>{
-        let inner = {};
-
-        let f = new Function('ok','equal', 'Dexie', 'DexiePromise', 'db', 'inner', 'mostNativePromise', 'fakeTransaction', 'fakeDBItemGet', `
-        return fakeTransaction(async ()=>{
-            let trans = Promise.PSD;
-            inner.promise = Promise.PSD;
-            trans.foo = 'foo';
-            ok(!!trans, "Should have a current transaction");
-            await Promise.resolve({id: 'foo'});
-            ok(Promise.PSD === trans, "Transaction persisted between await calls of DexiePromise");
-            await DexiePromise.resolve();
-            ok(Promise.PSD === trans, "Transaction persisted between await calls of DexiePromise synch");
-            await window.Promise.resolve();
-            ok(Promise.PSD === trans, "Transaction persisted between await calls of global Promise");
-            await 3;
-            ok(Promise.PSD === trans, "Transaction persisted between await calls of primitive(!)");
-            strictEqual(Promise.PSD.foo, 'foo', "Transaction persisted between await calls of primitive(!)");
-            // #TODO: needs TO BE TESTED
-            return;
-            await fakeTransaction(async () => {
-                let innermostPromise = Promise.PSD;
-                ok(!!innermostPromise, "Should have inner transaction");
-                notStrictEqual(trans, innermostPromise, 'PSD and innermost PSD are different');
-                strictEqual(innermostPromise.parent, trans, "Parent transaction should be correct");
-                let x = await fakeDBItemGet();
-                ok(Promise.PSD === innermostPromise, "Transaction persisted through await in inner transaction");
-            });
-            
-            strictEqual(DexiePromise.PSD, trans, "Transaction persisted between await calls of sub transaction");
-            await (async ()=>{
-                return await fakeDBItemGet();
-            })();
-            ok(Promise.PSD === trans, "Transaction persisted between await calls of async function");
-
-            await (async ()=>{
-                await Promise.all([
-                    fakeTransaction(async() => {
-                        await fakeDBItemGet();
-                        await fakeDBItemGet();
-                    }),
-                    fakeTransaction(async() => {
-                        return await fakeDBItemGet();
-                    })
-                ]);
-            })();
-            ok(Promise.PSD === trans, "Transaction persisted between await calls of async function 2");
-
-            await window.Promise.resolve().then(()=>{
-                ok(Promise.PSD === trans, "Transaction persisted after window.Promise.resolve().then()");
-                return (async ()=>{})(); // Resolve with native promise
-            }).then(()=>{
-                ok(Promise.PSD === trans, "Transaction persisted after native promise completion");
-                return window.Promise.resolve();
-            }).then(()=>{
-                ok(Promise.PSD === trans, "Transaction persisted after window.Promise.resolve().then()");
-                return (async ()=>{})();
-            });
-            ok(Promise.PSD === trans, "Transaction persisted between await calls of mixed promises");
-        });
-        `);
-        const result = f(ok, equal, Dexie, DexiePromise, db, inner, mostNativePromise, fakeTransaction, fakeDBItemGet);
-        notStrictEqual(Promise.PSD, inner.promise, "innerPSD did not leak");
-        return result;
-    }).catch(unsupportedNativeAwait).then(done);
-});
-
-test("Should be able to use native async await SINGLE AWAIT IN STRING", function(assert) {
-    let done = assert.async();
-    // strictEqual(DexiePromise, Dexie.Promise, 'Dexie[.]Promise identity crisis');
-    ok(DexiePromise.newPSD, 'Dexie[.]Promise identity crisis');
-    DexiePromise.resolve().then(()=>{
-        let f = new Function('ok','equal', 'Dexie', 'db', 'DexiePromise', `
-        
-        return DexiePromise.newPSD(async ()=>{
-            let trans = Promise.PSD;
-            ok(!!trans, "Should have a current transaction");
-            await Promise.resolve({id: 'foo'});
-            strictEqual(Promise.PSD, trans, "Transaction persisted between await calls of Dexie.Promise");
-        })
-        `);
-        return f(ok, equal, Dexie, db, DexiePromise);
-    }).catch(unsupportedNativeAwait).then(done);
-});
-
-test("Should be able to use native async await SINGLE AWAIT IN STRING 42", function(assert) {
-    let done = assert.async();
-    // strictEqual(DexiePromise, Dexie.Promise, 'Dexie[.]Promise identity crisis');
-    ok(DexiePromise.newPSD, 'Dexie[.]Promise identity crisis');
-    DexiePromise.resolve().then(()=>{
-        let f = new Function('ok','equal', 'Dexie', 'db', 'DexiePromise', 'fakeDBItemGet', `
-        function fakeTransaction(cb) {
-            return Promise.resolve().then(() => {
-                return DexiePromise.newPSD(() => {
-                    return cb();
-                });
-            });
-        }
-
-        return DexiePromise.newPSD(async ()=>{
-            let trans = Promise.PSD;
-            ok(!!trans, "Should have a current transaction");
-
-            await fakeTransaction(async () => {
-                let innermostPromise = Promise.PSD;
-                ok(!!innermostPromise, "Should have inner transaction");
-                notStrictEqual(trans, innermostPromise, 'PSD and innermost PSD are different');
-                strictEqual(innermostPromise.parent, trans, "Parent transaction should be correct");
-                let x = await fakeDBItemGet();
-                ok(Promise.PSD === innermostPromise, "Transaction persisted through await in inner transaction");
-                return Promise.resolve()
-            });
-            
-            strictEqual(DexiePromise.PSD, trans, "Transaction persisted between await calls of sub transaction");
-            
-            
-            strictEqual(Promise.PSD, trans, "Transaction persisted between await calls of Dexie.Promise");
-        })
-        `);
-        return f(ok, equal, Dexie, db, DexiePromise, fakeDBItemGet);
-    }).catch(unsupportedNativeAwait).then(done);
-});
+/*
 
 test("Should be able to use native async await", function(assert) {
     let done = assert.async();
@@ -366,13 +243,6 @@ test("Should be able to use native async await", function(assert) {
         return f(ok, equal, Dexie, db);
     }).catch(unsupportedNativeAwait).then(done);
 });
-
-function unsupportedNativeAwait(e) {
-    if (hasNativeAsyncFunctions)
-        ok(false, `Error: ${e.stack || e}`);
-    else
-        ok(true, `This browser does not support native async functions`);
-}
 
 test("Should be able to use native async await from upgrade handler (issue #612)", function(assert) {
     let done = assert.async();
@@ -737,6 +607,13 @@ promisedTest ("Should be able to use some simpe native async await even without 
 
 */
 
+function unsupportedNativeAwait(e) {
+    if (hasNativeAsyncFunctions)
+        ok(false, `Error: ${e.stack || e}`);
+    else
+        ok(true, `This browser does not support native async functions`);
+}
+
 const GlobalPromise = window.Promise;
 promisedTest ("Should behave outside transactions as well", async () => {
     if (!hasNativeAsyncFunctions) {
@@ -744,28 +621,29 @@ promisedTest ("Should behave outside transactions as well", async () => {
         return;
     }
 
-    await (new Function('ok', 'equal', 'DexiePromise', 'GlobalPromise',
-    `async function doSomething() {
-        ok(DexiePromise.PSD.global, "Should be at global scope.");
-        ok(window.Promise !== DexiePromise, "window.Promise should be original");
-        ok(window.Promise === GlobalPromise, "window.Promise should be original indeed");
-        await DexiePromise.resolve();
-        ok(DexiePromise.PSD.global, "Should be at global scope.");
-        await 3;
-        ok(DexiePromise.PSD.global, "Should be at global scope.");
-        await DexiePromise.resolve();
-        ok(true, "Could put an item");
-        await DexiePromise.resolve();
-        ok(true, "Could query an item");
-        ok(DexiePromise.PSD.global, "Should be at global scope.");
-        await 4;
-        ok(DexiePromise.PSD.global, "Should be at global scope.");
-    }
-    
-    DexiePromise.newPSD(async () => {
-        ok(!DexiePromise.PSD.global)
-    })
+    function f() {
+        async function doSomething() {
+            ok(DexiePromise.PSD.global, "Should be at global scope.");
+            ok(window.Promise !== DexiePromise, "window.Promise should be original");
+            ok(window.Promise === GlobalPromise, "window.Promise should be original indeed");
+            await DexiePromise.resolve();
+            ok(DexiePromise.PSD.global, "Should be at global scope.");
+            await 3;
+            ok(DexiePromise.PSD.global, "Should be at global scope.");
+            await DexiePromise.resolve();
+            ok(true, "Could put an item");
+            await DexiePromise.resolve();
+            ok(true, "Could query an item");
+            ok(DexiePromise.PSD.global, "Should be at global scope.");
+            await 4;
+            ok(DexiePromise.PSD.global, "Should be at global scope.");
+        }
 
-    return doSomething();
-    `))(ok, equal, DexiePromise, GlobalPromise)
+        DexiePromise.newPSD(async () => {
+            ok(!DexiePromise.PSD.global)
+        })
+
+        return doSomething();
+    }
+    await (f)();
 });
