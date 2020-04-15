@@ -1,5 +1,4 @@
-// import Dexie from 'dexie';
-import DexiePromise, {NativePromise} from './../src/helpers/promise.js';
+import DexiePromise from './../src/helpers/promise.js';
 
 const {module, test, strictEqual, ok, notStrictEqual, config} = QUnit;
 config.testTimeout = 1000
@@ -9,28 +8,6 @@ let hasNativeAsyncFunctions = false;
 try {
     hasNativeAsyncFunctions = !!new Function(`return (async ()=>{})();`)().then;
 } catch (e) {}
-
-/*
-var db = new Dexie("TestDBTranx");
-db.version(1).stores({
-    items: "id"
-});
-*/
-
-/*
-(new Function('db',`
-(async () => {
-debugger
-    var p = db.transaction('rw', db.items, t => {
-        debugger
-        return 42
-    })
-    debugger
-    var r = await p;
-    debugger
-})()
-`))(db);
-*/
 
 const signalError = e => {
     ok(false, `Error: ${e.stack || e}`);
@@ -166,125 +143,62 @@ test("Should be able to use global Promise within nested transaction scopes", fu
     strictEqual(DexiePromise.PSD, outerPSD, "outerPSD does not leak in !out");
 });
 
-function callInNewPSD(cb) {
-    return DexiePromise.newPSD (async () => {
-        return Promise.resolve().then(cb);
-    })
-}
-
 //**************************************************************************************************************
-//********************************************** NEW TESTS *****************************************************
-//**************************************************************************************************************
-
-function mostNativePromise() {
-    return crypto.subtle.digest("SHA-512", new Uint8Array([0]));
-}
-
-function fakeTransaction(cb) {
-    return Promise.resolve().then(() => {
-        return DexiePromise.newPSD(() => {
-            return cb();
-        });
-    });
-}
-
-function fakeDBItemGet() {
-    return DexiePromise.resolve();
-}
-
-/*
 
 test("Should be able to use native async await", function(assert) {
     let done = assert.async();
-    Dexie.Promise.resolve().then(()=>{
-        let f = new Function('ok','equal', 'Dexie', 'db', `return db.transaction('rw', db.items, async ()=>{
-            let trans = Dexie.currentTransaction;
-            ok(!!trans, "Should have a current transaction");
-            await db.items.add({id: 'foo'});
-            ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of Dexie.Promise");
-            await Dexie.Promise.resolve();
-            ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of Dexie.Promise synch");
-            await window.Promise.resolve();
-            ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of global Promise");
-            await 3;
-            ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of primitive(!)");
-            await db.transaction('r', db.items, async innerTrans => {
-                ok(!!innerTrans, "SHould have inner transaction");
-                equal(Dexie.currentTransaction, innerTrans, "Inner transaction should be there");
-                equal(innerTrans.parent, trans, "Parent transaction should be correct");
-                let x = await db.items.get(1);
-                ok(Dexie.currentTransaction === innerTrans, "Transaction persisted in inner transaction");
-            });
-            ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of sub transaction");
-            await (async ()=>{
-                return await db.items.get(1);
-            })();
-            ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of async function");
-            await (async ()=>{
-                await Promise.all([db.transaction('r', db.items, async() => {
-                    await db.items.get(1);
-                    await db.items.get(2);
-                }), db.transaction('r', db.items, async() => {
-                    return await db.items.get(1);
-                })]);
-            })();
-            ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of async function 2");
+    DexiePromise.resolve().then(()=>{
+        let f = function() {
+            return withZone(async ()=>{
+                let trans = DexiePromise.PSD;
+                ok(!!trans, "Should have a current transaction");
+                await new Promise(resolve => setTimeout(resolve, 40));
+                ok(DexiePromise.PSD === trans, "Transaction persisted between await calls of Dexie.Promise");
+                await DexiePromise.resolve();
+                ok(DexiePromise.PSD === trans, "Transaction persisted between await calls of Dexie.Promise synch");
+                await window.Promise.resolve();
+                ok(DexiePromise.PSD === trans, "Transaction persisted between await calls of global Promise");
+                await 3;
+                ok(DexiePromise.PSD === trans, "Transaction persisted between await calls of primitive(!)");
+                await withZone(async () => {
+                    const innerTrans = DexiePromise.PSD;
+                    ok(!!innerTrans, "Should have inner transaction");
+                    equal(DexiePromise.PSD, innerTrans, "Inner transaction should be there");
+                    equal(innerTrans.parent, trans, "Parent transaction should be correct");
+                    let x = await Promise.resolve(1);
+                    ok(DexiePromise.PSD === innerTrans, "Transaction persisted in inner transaction");
+                });
+                ok(DexiePromise.PSD === trans, "Transaction persisted between await calls of sub transaction");
+                await (async ()=>{
+                    return await Promise.resolve(1);
+                })();
+                ok(DexiePromise.PSD === trans, "Transaction persisted between await calls of async function");
+                await (async ()=>{
+                    await Promise.all([withZone(async() => {
+                        await Promise.resolve(1);
+                        await Promise.resolve(2);
+                    }), withZone(async() => {
+                        return await Promise.resolve(1);
+                    })]);
+                })();
+                ok(DexiePromise.PSD === trans, "Transaction persisted between await calls of async function 2");
 
-            await window.Promise.resolve().then(()=>{
-                ok(Dexie.currentTransaction === trans, "Transaction persisted after window.Promise.resolve().then()");
-                return (async ()=>{})(); // Resolve with native promise
-            }).then(()=>{
-                ok(Dexie.currentTransaction === trans, "Transaction persisted after native promise completion");
-                return window.Promise.resolve();
-            }).then(()=>{
-                ok(Dexie.currentTransaction === trans, "Transaction persisted after window.Promise.resolve().then()");
-                return (async ()=>{})();
-            });
-            ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of mixed promises");
-        })`);
-        return f(ok, equal, Dexie, db);
+                await window.Promise.resolve().then(()=>{
+                    ok(DexiePromise.PSD === trans, "Transaction persisted after window.Promise.resolve().then()");
+                    return (async ()=>{})(); // Resolve with native promise
+                }).then(()=>{
+                    ok(DexiePromise.PSD === trans, "Transaction persisted after native promise completion");
+                    return window.Promise.resolve();
+                }).then(()=>{
+                    ok(DexiePromise.PSD === trans, "Transaction persisted after window.Promise.resolve().then()");
+                    return (async ()=>{})();
+                });
+                ok(DexiePromise.PSD === trans, "Transaction persisted between await calls of mixed promises");
+            })
+        }
+        return f();
     }).catch(unsupportedNativeAwait).then(done);
 });
-
-test("Should be able to use native async await from upgrade handler (issue #612)", function(assert) {
-    let done = assert.async();
-
-    Dexie.Promise.resolve().then(()=>{
-        let f = new Function('ok','equal', 'Dexie', `
-        return Dexie.delete('issue612').then(async ()=>{
-          const log = [];
-          const db = new Dexie('issue612');
-          db.version(1).stores({foo: 'id'});
-          await db.open();
-          await db.foo.add({id: 1, name: "Foo Bar"});
-          db.close();
-          db.version(2).stores({foo: 'id, firstName, lastName'}).upgrade(async tx => {
-            log.push("2:1");
-            await tx.foo.toCollection().modify(x => {
-                const [firstName, lastName] = x.name.split(' ');
-                x.firstName = firstName;
-                x.lastName = lastName;
-                ++x.v
-            });
-            log.push("2:2");
-          });
-          db.version(3).upgrade(async tx => {
-            log.push("3:1");
-            await tx.foo.toArray();
-            log.push("3:2");
-          });
-          await db.open();
-          const count = await db.foo.where({firstName: 'Foo'}).count();
-          equal(count, 1, "Should find base on the upgraded index");
-          equal(log.join(','), "2:1,2:2,3:1,3:2", "Execution order of upgraders should be correct");
-          db.close();
-        });`);
-        return f(ok, equal, Dexie);
-    }).catch(unsupportedNativeAwait).then(()=>{
-        return Dexie.delete("issue612");
-    }).then(done);
-});
-
 
 const NativePromise = (()=>{
     try {
@@ -293,8 +207,6 @@ const NativePromise = (()=>{
         return window.Promise; 
     }
 })();
-
-*/
 
 test("Must not leak PSD zone", async function(assert) {
     let done = assert.async();
