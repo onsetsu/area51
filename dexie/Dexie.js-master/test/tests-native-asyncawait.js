@@ -420,6 +420,8 @@ test("Must not leak PSD zone2", async function(assert) {
     }).catch(signalError).then(done);
 });
 
+*/
+
 test("Should be able to await Promise.all()", async (assert) => {
     let done = assert.async();
 
@@ -429,46 +431,49 @@ test("Should be able to await Promise.all()", async (assert) => {
         return;
     }
 
-    (new Function('ok', 'equal', 'Dexie', 'db',
-    `return db.transaction('r', db.items, async (trans)=>{
-        ok(Dexie.currentTransaction === trans, "Correct initial transaction.");
-        await db.items.get(1); // Just to prohibit IDB bug in Safari - must use transaction in initial tick!
-        var promises = [];
-        for (var i=0; i<50; ++i) {
-            promises.push(subAsync1(trans));
-        }
-        for (var i=0; i<50; ++i) {
-            promises.push(subAsync2(trans));
-        }
-        await Promise.all(promises);
-        ok(Dexie.currentTransaction === trans, "Still same transaction 1 - after await Promise.all([100 promises...]);");
-        await Promise.all([1,2,3, db.items.get(2)]);
-        ok(Dexie.currentTransaction === trans, "Still same transaction 2 - after Promise.all(1,2,3,db.items.get(2))");
-        await db.items.get(1);
-        ok(Dexie.currentTransaction === trans, "Still same transaction 3 - after await db.items.get(1);");
-        await 3;
-        ok(Dexie.currentTransaction === trans, "Still same transaction 4 - after await 3;");
-    });
+    (function f() {
+        return withZone(async (trans)=>{
+            trans = Promise.PSD;
+            ok(Promise.PSD === trans, "Correct initial transaction.");
+            await Promise.resolve(1); // Just to prohibit IDB bug in Safari - must use transaction in initial tick!
+            var promises = [];
+            for (var i=0; i<50; ++i) {
+                promises.push(subAsync1(trans));
+            }
+            for (var i=0; i<50; ++i) {
+                promises.push(subAsync2(trans));
+            }
 
-    async function subAsync1 (trans) {
-        await 1;
-        await 2;
-        await 3;
-        if (Dexie.currentTransaction !== trans) ok(false, "Not in transaction");
-    }
+            await Promise.all(promises);
+            ok(Promise.PSD === trans, "Still same transaction 1 - after await Promise.all([100 promises...]);");
+            await Promise.all([1,2,3, Promise.resolve(2)]);
+            ok(Promise.PSD === trans, "Still same transaction 2 - after Promise.all(1,2,3,db.items.get(2))");
+            await Promise.resolve(1);
+            ok(Promise.PSD === trans, "Still same transaction 3 - after await db.items.get(1);");
+            await 3;
+            ok(Promise.PSD === trans, "Still same transaction 4 - after await 3;");
+        });
 
-    async function subAsync2 (trans) {
-        await 1;
-        await 2;
-        if (Dexie.currentTransaction !== trans) ok(false, "Not in transaction 2");
-        await db.items.get(1);
-    }
-    `))(ok, equal, Dexie, db)
+        async function subAsync1 (trans) {
+            await 1;
+            await 2;
+            await 3;
+            if (Promise.PSD !== trans) ok(false, "Not in transaction");
+        }
+
+        async function subAsync2 (trans) {
+            await 1;
+            await 2;
+            if (Promise.PSD !== trans) ok(false, "Not in transaction 2");
+            await Promise.resolve(1);
+        }
+    })()
     .catch(e => {
         ok(false, e.stack || e);
     }).then(done);
 });
 
+/*
 spawnedTest("Should use Promise.all where applicable", function* (){
     yield db.transaction('rw', db.items, function* () {
         let x = yield Promise.resolve(3);
@@ -484,48 +489,46 @@ spawnedTest("Should use Promise.all where applicable", function* (){
     });
 });
 
+ */
+
 spawnedTest("Even when keeping a reference to global Promise, still maintain PSD zone states", function* (){
    let Promise = window.Promise;
-   yield db.transaction('rw', db.items, () => {
-       var trans = Dexie.currentTransaction;
+   yield withZone(() => {
+       var trans = DexiePromise.PSD;
        ok (trans !== null, "Have a transaction");
        return Promise.resolve().then(()=>{
-           ok (Dexie.currentTransaction === trans, "Still have the same current transaction.");
+           ok (DexiePromise.PSD === trans, "Still have the same current transaction.");
            return Promise.resolve().then(()=>Promise.resolve());
        }).then(()=>{
-           ok (Dexie.currentTransaction === trans, "Still have the same current transaction after multiple global.Promise.resolve() calls");
+           ok (DexiePromise.PSD === trans, "Still have the same current transaction after multiple global.Promise.resolve() calls");
        });
    });
 });
 
 spawnedTest ("Sub Transactions with async await", function*() {
-    try {
-
-        yield new Function ('equal', 'ok', 'Dexie', 'db', `return (async ()=>{
-            await db.items.bulkAdd([{id: 1}, {id:2}, {id: 3}]);
-            let result = await db.transaction('rw', db.items, async ()=>{
-                let items = await db.items.toArray();
-                let numItems = await db.transaction('r', db.items, async ()=>{
-                    equal(await db.items.count(), await db.items.count(), "Two awaits of count should equal");
-                    equal(await db.items.count(), 3, "Should be 3 items");
-                    return await db.items.count();
+    yield (function f(){
+        return (async ()=>{
+            const items = await DexiePromise.resolve([{id: 1}, {id:2}, {id: 3}]);
+            const numItems = items.length;
+                let result = await withZone(async ()=>{
+                await DexiePromise.resolve();
+                let numItems1 = await withZone(async ()=>{
+                    equal(await Promise.resolve(numItems), await Promise.resolve(numItems), "Two awaits of count should equal");
+                    equal(await Promise.resolve(numItems), 3, "Should be 3 items");
+                    return await Promise.resolve(numItems);
                 });
-                let numItems2 = await db.transaction('r', db.items, async ()=>{
-                    equal(await db.items.count(), await db.items.count(), "Two awaits of count should equal");
-                    equal(await db.items.count(), 3, "Should be 3 items");
-                    return await db.items.count();
+                let numItems2 = await withZone(async ()=>{
+                    equal(await Promise.resolve(numItems), await Promise.resolve(numItems), "Two awaits of count should equal");
+                    equal(await Promise.resolve(numItems), 3, "Should be 3 items");
+                    return await Promise.resolve(numItems);
                 });
-                equal (numItems, numItems2, "The total two inner transactions should be possible to run after each other");
+                equal (numItems1, numItems2, "The total two inner transactions should be possible to run after each other");
                 return numItems;
             });
             equal (result, 3, "Result should be 3");
-        })();`)(equal, ok, Dexie, db);
-    } catch (e) {
-        ok(e.name === 'SyntaxError', "No support for native async functions in this browser");
-    }
+        })();
+    })();
 });
-
-*/
 
 promisedTest ("Should patch global Promise within transaction scopes but leave them intact outside", async() => {
     ok(Promise !== DexiePromise, "At global scope. Promise should not be DexiePromise");
