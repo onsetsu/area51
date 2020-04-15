@@ -294,6 +294,8 @@ const NativePromise = (()=>{
     }
 })();
 
+*/
+
 test("Must not leak PSD zone", async function(assert) {
     let done = assert.async();
 
@@ -302,54 +304,54 @@ test("Must not leak PSD zone", async function(assert) {
         done();
         return;
     }
-    let F = new Function('ok','equal', 'Dexie', 'db', `
-        ok(Dexie.currentTransaction === null, "Should not have an ongoing transaction to start with");
+    let F = function F(){
+        ok(DexiePromise.PSD.global, "Should not have an ongoing transaction to start with");
         var trans1, trans2;
-        var p1 = db.transaction('r', db.items, async ()=> {
-            var trans = trans1 = Dexie.currentTransaction;
-            await db.items.get(1); // Just to prohibit IDB bug in Safari - must use transaction in initial tick!
+        var p1 = withZone(async ()=> {
+            var trans = trans1 = DexiePromise.PSD;
+            await Promise.resolve(1); // Just to prohibit IDB bug in Safari - must use transaction in initial tick!
             await 3;
-            ok(Dexie.currentTransaction === trans, "Should still be in same transaction 1.0 - after await 3");
+            ok(DexiePromise.PSD === trans, "Should still be in same transaction 1.0 - after await 3");
             await 4;
-            ok(Dexie.currentTransaction === trans, "Should still be in same transaction 1.0 - after await 4");
+            ok(DexiePromise.PSD === trans, "Should still be in same transaction 1.0 - after await 4");
             await 5;
-            ok(Dexie.currentTransaction === trans, "Should still be in same transaction 1.0 - after await 5");
-            await db.items.get(1);
-            ok(Dexie.currentTransaction === trans, "Should still be in same transaction 1.1 - after db.items.get(1)");
+            ok(DexiePromise.PSD === trans, "Should still be in same transaction 1.0 - after await 5");
+            await Promise.resolve(1);
+            ok(DexiePromise.PSD === trans, "Should still be in same transaction 1.1 - after db.items.get(1)");
             await 6;
-            ok(Dexie.currentTransaction === trans, "Should still be in same transaction 1.1 - after await 6");
+            ok(DexiePromise.PSD === trans, "Should still be in same transaction 1.1 - after await 6");
             await subFunc(1);
-            ok(Dexie.currentTransaction === trans, "Should still be in same transaction 1.2 - after async subFunc()");
+            ok(DexiePromise.PSD === trans, "Should still be in same transaction 1.2 - after async subFunc()");
             await Promise.all([subFunc(11), subFunc(12), subFunc(13)]);
-            ok(Dexie.currentTransaction === trans, "Should still be in same transaction 1.3 - after Promise.all()");
+            ok(DexiePromise.PSD === trans, "Should still be in same transaction 1.3 - after Promise.all()");
             await subFunc2_syncResult();
-            ok(Dexie.currentTransaction === trans, "Should still be in same transaction 1.4 - after async subFunc_syncResult()");
+            ok(DexiePromise.PSD === trans, "Should still be in same transaction 1.4 - after async subFunc_syncResult()");
             await Promise.all([subFunc2_syncResult(), subFunc2_syncResult(), subFunc2_syncResult()]);
-            ok(Dexie.currentTransaction === trans, "Should still be in same transaction 1.5 - after Promise.all(sync results)");
+            ok(DexiePromise.PSD === trans, "Should still be in same transaction 1.5 - after Promise.all(sync results)");
         });
-        var p2 = db.transaction('r', db.items, async ()=> {
-            var trans = trans2 = Dexie.currentTransaction;
-            await db.items.get(1); // Just to prohibit IDB bug in Safari - must use transaction in initial tick!
+        var p2 = withZone(async ()=> {
+            var trans = trans2 = DexiePromise.PSD;
+            await Promise.resolve(1); // Just to prohibit IDB bug in Safari - must use transaction in initial tick!
             ok(trans1 !== trans2, "Parallell transactions must be different from each other");
             await 3;
-            ok(Dexie.currentTransaction === trans, "Should still be in same transaction 2.0 - after await 3");
-            await db.items.get(1);
-            ok(Dexie.currentTransaction === trans, "Should still be in same transaction 2.1 - after db.items.get(1)");
+            ok(DexiePromise.PSD === trans, "Should still be in same transaction 2.0 - after await 3");
+            await Promise.resolve(1);
+            ok(DexiePromise.PSD === trans, "Should still be in same transaction 2.1 - after db.items.get(1)");
             await subFunc(2);
-            ok(Dexie.currentTransaction === trans, "Should still be in same transaction 2.2 - after async subFunc()");
+            ok(DexiePromise.PSD === trans, "Should still be in same transaction 2.2 - after async subFunc()");
             await Promise.all([subFunc(21), subFunc(22), subFunc(23)]);
-            ok(Dexie.currentTransaction === trans, "Should still be in same transaction 2.3 - after Promise.all()");
+            ok(DexiePromise.PSD === trans, "Should still be in same transaction 2.3 - after Promise.all()");
             await subFunc2_syncResult();
-            ok(Dexie.currentTransaction === trans, "Should still be in same transaction 2.4 - after async subFunc_syncResult()");
+            ok(DexiePromise.PSD === trans, "Should still be in same transaction 2.4 - after async subFunc_syncResult()");
             await Promise.all([subFunc2_syncResult(), subFunc2_syncResult(), subFunc2_syncResult()]);
-            ok(Dexie.currentTransaction === trans, "Should still be in same transaction 2.5 - after Promise.all(sync results)");
+            ok(DexiePromise.PSD === trans, "Should still be in same transaction 2.5 - after Promise.all(sync results)");
         });
         //var p2 = Promise.resolve();
-        ok(Dexie.currentTransaction === null, "Should not have an ongoing transaction after transactions");
+        ok(DexiePromise.PSD.global, "Should not have an ongoing transaction after transactions");
 
         async function subFunc(n) {
             await 3;
-            let result = await db.items.get(2);
+            let result = await Promise.resolve(2);
             return result;
         }
 
@@ -359,11 +361,9 @@ test("Must not leak PSD zone", async function(assert) {
         }
         
         return Promise.all([p1, p2]);
-    `);
-    F(ok, equal, Dexie, db).catch(e => ok(false, e.stack || e)).then(done);
+    }
+    F().catch(e => ok(false, e.stack || e)).then(done);
 });
-
-*/
 
 test("Must not leak PSD zone2", async function(assert) {
     let done = assert.async();
