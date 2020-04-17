@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Area51</title>
+    <link href="log.css" rel="stylesheet"/>
+    <script src="log.js"></script>
+    <script src="nav.js"></script>
+</head>
+<body>
+<script type="text/javascript">insertNavigation();</script>
+
+<h1>Area51</h1>
+<h3>Log</h3>
+
+</body>
+<script type="module" type="text/javascript">
+    import { isAsyncFunction } from './../src/functions/utils.js';
+    import DexiePromise, { newScope, incrementExpectedAwaits, decrementExpectedAwaits, PSD, rejection, setZonePrintF, lZone, getFrame } from './../src/helpers/promise.js';
+
+    const l = cLog('limegreen');
+    setZonePrintF(true);
+
+    async function withZone(scopeFunc) {
+        let returnValue;
+        try {
+            console.group('withZone')
+
+            const zoneProps = {};
+
+            incrementExpectedAwaits();
+
+            newScope(() => {
+                returnValue = scopeFunc.call();
+            }, zoneProps)
+        } finally {
+            if (returnValue && typeof returnValue.then === 'function') {
+                returnValue.then(() => decrementExpectedAwaits())
+            }
+            console.groupEnd();
+
+        }
+    }
+
+    console.log('OUTER START')
+    withZone(async function () {
+
+        console.log('START')
+
+        // Put something in it.
+        l('set var on PSD to 3');
+        DexiePromise.PSD.test = 3;
+
+        await (42);
+        console.log(`${lZone(DexiePromise.PSD)}`, DexiePromise.PSD.test)
+        // await new Promise(re => setTimeout(re, 200));
+        // console.log(`${lZone(DexiePromise.PSD)}`, DexiePromise.PSD.test)
+
+
+        console.log('END')
+    });
+    console.log('OUTER END')
+
+</script>
+</html>

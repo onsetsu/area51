@@ -14,6 +14,7 @@ function insertNavigation() {
         linkListFromObject({
             "area51.html": "area51",
             "zone-echoing.html": "zone echoing",
+            "zone-echoing-sync.html": "zone echoing sync",
         })
     }
     ${

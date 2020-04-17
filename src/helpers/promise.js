@@ -553,10 +553,14 @@ function linkToPreviousPromise(promise, prev) {
    It runs a virtual microtick and executes any callback registered in microtickQueue.
  */
 function physicalTick() {
+    if (zonePrintF) console.groupCollapsed(`physicalTick ${3}`, getFrame())
+    if (zonePrintF) console.log(`%cwhy was this scheduled anyway?`, 'color: darkgray')
     beginMicroTickScope() && endMicroTickScope();
+    if (zonePrintF) console.groupEnd()
 }
 
 export function beginMicroTickScope() {
+    if (zonePrintF) console.log(`beginMicroTickScope ${isOutsideMicroTick}`, getFrame())
     var wasRootExec = isOutsideMicroTick;
     isOutsideMicroTick = false;
     needsNewPhysicalTick = false;
@@ -572,6 +576,7 @@ export function beginMicroTickScope() {
    our asap method.
 */
 export function endMicroTickScope() {
+    if (zonePrintF) console.group(`endMicroTickScope ${microtickQueue.length}`, getFrame())
     var callbacks, i, l;
     do {
         while (microtickQueue.length > 0) {
@@ -586,6 +591,7 @@ export function endMicroTickScope() {
     } while (microtickQueue.length > 0);
     isOutsideMicroTick = true;
     needsNewPhysicalTick = true;
+    if (zonePrintF) console.groupEnd();
 }
 
 function finalizePhysicalTick() {
@@ -643,7 +649,7 @@ export function wrap (fn, errorCatcher) {
             outerScope = PSD;
 
         try {
-            console.group('wrap')
+            if (zonePrintF) console.group('wrap')
             switchToZone(psd, true);
             return fn.apply(this, arguments);
         } catch (e) {
@@ -651,7 +657,7 @@ export function wrap (fn, errorCatcher) {
         } finally {
             switchToZone(outerScope, false);
             if (wasRootExec) endMicroTickScope();
-            console.groupEnd();
+            if (zonePrintF) console.groupEnd();
         }
     };
 }
@@ -708,11 +714,11 @@ export function newScope (fn, props, a1, a2) {
 // Function to call if scopeFunc returns NativePromise
 // Also for each NativePromise in the arguments to Promise.all()
 export function incrementExpectedAwaits() {
-    console.log(`increment ${lZone(PSD)}`, getFrame())
+    if (zonePrintF) console.log(`increment ${lZone(PSD)}`, getFrame())
     if (!task.id) task.id = ++taskCounter;
     ++task.awaits;
     task.echoes += ZONE_ECHO_LIMIT;
-    console.log(`incrementEnd ${lZone(PSD)}`, getFrame())
+    if (zonePrintF) console.log(`incrementEnd ${lZone(PSD)}`, getFrame())
     return task.id;
 }
 
@@ -720,11 +726,11 @@ export function incrementExpectedAwaits() {
 // Also call this when a native await calls then method on a promise. In that case, don't supply
 // sourceTaskId because we already know it refers to current task.
 export function decrementExpectedAwaits(sourceTaskId) {
-    console.log(`decrement ${lZone(PSD)}`, getFrame())
+    if (zonePrintF) console.log(`decrement ${lZone(PSD)}`, getFrame())
     if (!task.awaits || (sourceTaskId && sourceTaskId !== task.id)) return;
     if (--task.awaits === 0) task.id = 0;
     task.echoes = task.awaits * ZONE_ECHO_LIMIT; // Will reset echoes to 0 if awaits is 0.
-    console.log(`decrementEnd ${lZone(PSD)}`, getFrame())
+    if (zonePrintF) console.log(`decrementEnd ${lZone(PSD)}`, getFrame())
 }
 
 if ((''+nativePromiseThen).indexOf('[native code]') === -1) {
@@ -749,19 +755,19 @@ export function onPossibleParallellAsync (possiblePromise) {
 }
 
 function zoneEnterEcho(targetZone) {
-    // console.log(`zoneEnterEcho: ${lZone(PSD)} -> ${lZone(targetZone)}`, getFrame())
+    // if (zonePrintF) console.log(`zoneEnterEcho: ${lZone(PSD)} -> ${lZone(targetZone)}`, getFrame())
     ++totalEchoes;
-    //console.log("Total echoes ", totalEchoes);
+    //if (zonePrintF) console.log("Total echoes ", totalEchoes);
     if (!task.echoes || --task.echoes === 0) {
         task.echoes = task.id = 0; // Cancel zone echoing.
     }
 
     try {
-        console.group(`zoneEnterEcho: ${lZone(PSD)} -> ${lZone(targetZone)}`, getFrame())
+        if (zonePrintF) console.group(`zoneEnterEcho: ${lZone(PSD)} -> ${lZone(targetZone)}`, getFrame())
         zoneStack.push(PSD);
         switchToZone(targetZone, true);
     } finally {
-        console.groupEnd()
+        if (zonePrintF) console.groupEnd()
     }
 }
 
@@ -769,10 +775,10 @@ function zoneLeaveEcho() {
     var zone = zoneStack[zoneStack.length-1];
     zoneStack.pop();
     try {
-        console.group(`zoneLeaveEcho: ${lZone(PSD)} -> ${lZone(zone)}`, getFrame())
+        if (zonePrintF) console.group(`zoneLeaveEcho: ${lZone(PSD)} -> ${lZone(zone)}`, getFrame())
         switchToZone(zone, false);
     } finally {
-        console.groupEnd()
+        if (zonePrintF) console.groupEnd()
     }
 }
 
@@ -803,7 +809,7 @@ export function getFrame() {
 }
 
 function switchToZone (targetZone, bEnteringZone) {
-    console.log(`${bEnteringZone ? 'enter' : 'leave'} ${lZone(PSD)} -> ${lZone(targetZone)}`, getFrame())
+    if (zonePrintF) console.log(`${bEnteringZone ? 'enter' : 'leave'} ${lZone(PSD)} -> ${lZone(targetZone)}`, getFrame())
     var currentZone = PSD;
     if (bEnteringZone ? task.echoes && (!zoneEchoes++ || targetZone !== PSD) : zoneEchoes && (!--zoneEchoes || targetZone !== PSD)) {
         // Enter or leave zone asynchronically as well, so that tasks initiated during current tick
@@ -862,15 +868,18 @@ function snapShot () {
     } : {};
 }
 
+export let zonePrintF = false;
+export function setZonePrintF(bool) { zonePrintF = bool; }
+
 export function usePSD (psd, fn, a1, a2, a3) {
     var outerScope = PSD;
     try {
-        console.group('usePSD')
+        if (zonePrintF) console.group('usePSD')
         switchToZone(psd, true);
         return fn(a1, a2, a3);
     } finally {
         switchToZone(outerScope, false);
-        console.groupEnd();
+        if (zonePrintF) console.groupEnd();
     }
 }
 
@@ -878,7 +887,7 @@ function enqueueNativeMicroTask (job) {
     //
     // Precondition: nativePromiseThen !== undefined
     //
-    console.log(`enqueue ${job.name}`, getFrame())
+    if (zonePrintF) console.log(`enqueue ${job.name}`, getFrame())
     nativePromiseThen.call(resolvedNativePromise, job);
 }
 

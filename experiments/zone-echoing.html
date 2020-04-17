@@ -16,9 +16,10 @@
 </body>
 <script type="module" type="text/javascript">
     import { isAsyncFunction } from './../src/functions/utils.js';
-    import DexiePromise, { incrementExpectedAwaits, decrementExpectedAwaits, PSD, rejection, lZone, getFrame } from './../src/helpers/promise.js';
+    import DexiePromise, { incrementExpectedAwaits, decrementExpectedAwaits, PSD, rejection, setZonePrintF, lZone, getFrame } from './../src/helpers/promise.js';
 
     const l = cLog('limegreen');
+    setZonePrintF(true);
 
     async function withZone(scopeFunc) {
         return Promise.resolve().then(() => {
@@ -63,7 +64,7 @@
     }
 
     console.log('OUTER START')
-    withZone(async function () {
+    withZone(async function func() {
 
         console.log('START')
 
@@ -72,7 +73,16 @@
         DexiePromise.PSD.test = 3;
 
         await (42);
-        console.log(`${lZone(DexiePromise.PSD)}`, DexiePromise.PSD.test)
+        console.log(`${lZone(DexiePromise.PSD)}`, DexiePromise.PSD.test, getFrame())
+
+        await (42);
+        console.log(`${lZone(DexiePromise.PSD)}`, DexiePromise.PSD.test, getFrame())
+
+        await (42);
+        console.log(`${lZone(DexiePromise.PSD)}`, DexiePromise.PSD.test, getFrame())
+
+        await (42);
+        console.log(`${lZone(DexiePromise.PSD)}`, DexiePromise.PSD.test, getFrame())
         // await new Promise(re => setTimeout(re, 200));
         // console.log(`${lZone(DexiePromise.PSD)}`, DexiePromise.PSD.test)
 
