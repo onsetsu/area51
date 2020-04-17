@@ -36,6 +36,7 @@ module.exports = function (config) {
       'node_modules/qunitjs/qunit/qunit.js',
       'test/karma-env.js',
       { pattern: 'test/tests-all.js', type: 'module', watched: true, included: true },
+      { pattern: 'ContextJS/**/*.js', type: 'module', watched: true, included: false },
       { pattern: 'src/**/*.js', type: 'module', watched: true, included: false },
       { pattern: 'test/**/*.js', type: 'module', watched: true, included: false },
     ],
