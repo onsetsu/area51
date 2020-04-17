@@ -13,6 +13,7 @@ function insertNavigation() {
     div.innerHTML = `${
         linkListFromObject({
             "area51.html": "area51",
+            "zone-echoing.html": "zone echoing",
         })
     }
     ${

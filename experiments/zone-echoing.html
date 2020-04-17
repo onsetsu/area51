@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Area51</title>
+    <link href="log.css" rel="stylesheet"/>
+    <script src="log.js"></script>
+    <script src="nav.js"></script>
+</head>
+<body>
+<script type="text/javascript">insertNavigation();</script>
+
+<h1>Area51</h1>
+<h3>Log</h3>
+
+</body>
+<script type="module" type="text/javascript">
+    import { isAsyncFunction } from './../src/functions/utils.js';
+    import DexiePromise, { incrementExpectedAwaits, decrementExpectedAwaits, PSD, rejection, lZone, getFrame } from './../src/helpers/promise.js';
+
+    const l = cLog('limegreen');
+
+    async function withZone(scopeFunc) {
+        return Promise.resolve().then(() => {
+
+            try {
+                console.group('withZone')
+                // Let the transaction instance be part of a Promise-specific data (PSD) value.
+                const zoneProps = {};
+
+                // Support for native async await.
+                const scopeFuncIsAsync = isAsyncFunction(scopeFunc);
+                if (scopeFuncIsAsync) {
+                    incrementExpectedAwaits();
+                }
+
+                let returnValue;
+                const promiseFollowed = DexiePromise.follow(() => {
+                    // Finally, call the scope function with our table and transaction arguments.
+                    returnValue = scopeFunc.call();
+                    if (returnValue) {
+                        if (scopeFuncIsAsync) {
+                            // scopeFunc is a native async function - we know for sure returnValue is native promise.
+                            var decrementor = decrementExpectedAwaits.bind(null, null);
+                            returnValue.then(decrementor, decrementor);
+                        }
+                    }
+                }, zoneProps);
+                return (returnValue && typeof returnValue.then === 'function' ?
+                        // Promise returned. User uses promise-style transactions.
+                        Promise.resolve(returnValue)
+                        // No promise returned. Wait for all outstanding promises before continuing.
+                        : promiseFollowed.then(() => returnValue)
+                ).catch(e => {
+                    return rejection(e);
+                });
+
+            } finally {
+                console.groupEnd();
+
+            }
+        });
+    }
+
+    console.log('OUTER START')
+    withZone(async function () {
+
+        console.log('START')
+
+        // Put something in it.
+        l('set var on PSD to 3');
+        DexiePromise.PSD.test = 3;
+
+        await (42);
+        console.log(`${lZone(DexiePromise.PSD)}`, DexiePromise.PSD.test)
+        // await new Promise(re => setTimeout(re, 200));
+        // console.log(`${lZone(DexiePromise.PSD)}`, DexiePromise.PSD.test)
+
+
+        console.log('END')
+    });
+    console.log('OUTER END')
+
+</script>
+</html>

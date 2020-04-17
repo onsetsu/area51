@@ -643,6 +643,7 @@ export function wrap (fn, errorCatcher) {
             outerScope = PSD;
 
         try {
+            console.group('wrap')
             switchToZone(psd, true);
             return fn.apply(this, arguments);
         } catch (e) {
@@ -650,6 +651,7 @@ export function wrap (fn, errorCatcher) {
         } finally {
             switchToZone(outerScope, false);
             if (wasRootExec) endMicroTickScope();
+            console.groupEnd();
         }
     };
 }
@@ -659,6 +661,7 @@ export function wrap (fn, errorCatcher) {
 // variables used for native await support
 //
 const task = { awaits: 0, echoes: 0, id: 0}; // The ongoing macro-task when using zone-echoing.
+// echoes !== 0: we are in zone-echoing mode!
 var taskCounter = 0; // ID counter for macro tasks.
 var zoneStack = []; // Stack of left zones to restore asynchronically.
 var zoneEchoes = 0; // zoneEchoes is a must in order to persist zones between native await expressions.
@@ -705,9 +708,11 @@ export function newScope (fn, props, a1, a2) {
 // Function to call if scopeFunc returns NativePromise
 // Also for each NativePromise in the arguments to Promise.all()
 export function incrementExpectedAwaits() {
+    console.log(`increment ${lZone(PSD)}`, getFrame())
     if (!task.id) task.id = ++taskCounter;
     ++task.awaits;
     task.echoes += ZONE_ECHO_LIMIT;
+    console.log(`incrementEnd ${lZone(PSD)}`, getFrame())
     return task.id;
 }
 
@@ -715,9 +720,11 @@ export function incrementExpectedAwaits() {
 // Also call this when a native await calls then method on a promise. In that case, don't supply
 // sourceTaskId because we already know it refers to current task.
 export function decrementExpectedAwaits(sourceTaskId) {
+    console.log(`decrement ${lZone(PSD)}`, getFrame())
     if (!task.awaits || (sourceTaskId && sourceTaskId !== task.id)) return;
     if (--task.awaits === 0) task.id = 0;
     task.echoes = task.awaits * ZONE_ECHO_LIMIT; // Will reset echoes to 0 if awaits is 0.
+    console.log(`decrementEnd ${lZone(PSD)}`, getFrame())
 }
 
 if ((''+nativePromiseThen).indexOf('[native code]') === -1) {
@@ -742,23 +749,61 @@ export function onPossibleParallellAsync (possiblePromise) {
 }
 
 function zoneEnterEcho(targetZone) {
+    // console.log(`zoneEnterEcho: ${lZone(PSD)} -> ${lZone(targetZone)}`, getFrame())
     ++totalEchoes;
     //console.log("Total echoes ", totalEchoes);
     if (!task.echoes || --task.echoes === 0) {
         task.echoes = task.id = 0; // Cancel zone echoing.
     }
 
-    zoneStack.push(PSD);
-    switchToZone(targetZone, true);
+    try {
+        console.group(`zoneEnterEcho: ${lZone(PSD)} -> ${lZone(targetZone)}`, getFrame())
+        zoneStack.push(PSD);
+        switchToZone(targetZone, true);
+    } finally {
+        console.groupEnd()
+    }
 }
 
 function zoneLeaveEcho() {
     var zone = zoneStack[zoneStack.length-1];
     zoneStack.pop();
-    switchToZone(zone, false);
+    try {
+        console.group(`zoneLeaveEcho: ${lZone(PSD)} -> ${lZone(zone)}`, getFrame())
+        switchToZone(zone, false);
+    } finally {
+        console.groupEnd()
+    }
+}
+
+let __zone_id__ = 1;
+export function lZone(zone) {
+    if (!zone) {
+        return '!NO ZONE!'
+    }
+
+    if (!zone.hasOwnProperty('__id__')) {
+        zone.__id__ = __zone_id__++;
+    }
+    return zone.__id__ + (zone.global ? "g" : "");
+}
+export function getFrame() {
+    var o = {}
+    Error.captureStackTrace(o, getFrame)
+
+    const frames = o.stack.split('\n');
+    const topMostFrame = frames[1]
+        .replace(/^\s*at\s/, '')
+        .replace(/\s\(.*\)/, '');
+    const callerFrame = frames[2] && frames[2].replace(/^\s*at\s/, '').replace(/\(.+\)/, '');
+    const frame = topMostFrame + ' at ' + callerFrame;
+
+    return `(${task.id} ${task.awaits} ${task.echoes} ${taskCounter} (${zoneStack.map(lZone).join(',')}) ${zoneEchoes} ${totalEchoes}) ${frame}`;
+
 }
 
 function switchToZone (targetZone, bEnteringZone) {
+    console.log(`${bEnteringZone ? 'enter' : 'leave'} ${lZone(PSD)} -> ${lZone(targetZone)}`, getFrame())
     var currentZone = PSD;
     if (bEnteringZone ? task.echoes && (!zoneEchoes++ || targetZone !== PSD) : zoneEchoes && (!--zoneEchoes || targetZone !== PSD)) {
         // Enter or leave zone asynchronically as well, so that tasks initiated during current tick
@@ -820,10 +865,12 @@ function snapShot () {
 export function usePSD (psd, fn, a1, a2, a3) {
     var outerScope = PSD;
     try {
+        console.group('usePSD')
         switchToZone(psd, true);
         return fn(a1, a2, a3);
     } finally {
         switchToZone(outerScope, false);
+        console.groupEnd();
     }
 }
 
@@ -831,18 +878,22 @@ function enqueueNativeMicroTask (job) {
     //
     // Precondition: nativePromiseThen !== undefined
     //
+    console.log(`enqueue ${job.name}`, getFrame())
     nativePromiseThen.call(resolvedNativePromise, job);
 }
 
 function nativeAwaitCompatibleWrap(fn, zone, possibleAwait) {
+    console.log('nativeAwaitCompatibleWrap')
     return typeof fn !== 'function' ? fn : function () {
         var outerZone = PSD;
+        console.group('nativeAwaitCompatibleWrapped')
         if (possibleAwait) incrementExpectedAwaits();
         switchToZone(zone, true);
         try {
             return fn.apply(this, arguments);
         } finally {
             switchToZone(outerZone, false);
+            console.groupEnd();
         }
     };
 }
