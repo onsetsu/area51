@@ -1,11 +1,7 @@
-const {module, test, strictEqual, ok, notStrictEqual, config} = QUnit;
-config.testTimeout = 5000;
-
 import DexiePromise from './../src/helpers/promise.js';
-import {promisedTest} from './unittest-utils.js';
 
 import {Layer, withLayers, withoutLayers} from './../ContextJS/src/contextjs.js';
-import {activeLayers, LayerStack, proceed, resetLayerStack} from './../ContextJS/src/Layers.js';
+import {activeLayers, currentLayers, LayerStack, proceed, resetLayerStack} from './../ContextJS/src/Layers.js';
 import {decrementExpectedAwaits, incrementExpectedAwaits, newScope} from "../src/helpers/promise.js";
 
 class Zone {
@@ -15,10 +11,16 @@ class Zone {
 }
 
 function copyFrame(frame) {
-    const resultFrame = {
-        withLayers: frame.withLayers ? Array.from(frame.withLayers) : undefined,
-        withoutLayers: frame.withoutLayers ? Array.from(frame.withoutLayers) : undefined,
-    };
+    const resultFrame = {};
+
+    // use copied arrays of layers
+    if (frame.withLayers) {
+        resultFrame.withLayers = Array.from(frame.withLayers)
+    }
+    if (frame.withoutLayers) {
+        resultFrame.withoutLayers = Array.from(frame.withoutLayers)
+    }
+
     return Object.assign(resultFrame, frame);
 }
 
@@ -27,12 +29,54 @@ function storeLayerStack() {
 }
 
 function replayLayerStack(from) {
-    LayerStack.length = 0;
-    LayerStack.push(...from);
+    const fromLength = from.length;
+    const LayerStackLength = LayerStack.length;
+    const maxLengthCommonAncestry = Math.min(fromLength, LayerStackLength);
+    let commonAncestryLength = 0;
+
+    while (commonAncestryLength < maxLengthCommonAncestry && frameEquals(from[commonAncestryLength], LayerStack[commonAncestryLength])) {
+        commonAncestryLength++;
+    }
+
+    while (LayerStack.length > commonAncestryLength) {
+        popFrame();
+    }
+    while (LayerStack.length < fromLength) {
+        pushFrame(from[LayerStack.length]);
+    }
 }
 
-function popFrame(stack) {}
-function pushFrame(stack, frame) {}
+function popFrame() {
+    const beforePop = currentLayers();
+
+    const frame = LayerStack.pop();
+    const { withLayers, withoutLayers } = frame;
+
+    const afterPop = currentLayers();
+
+    withLayers && withLayers
+        .filter(l => beforePop.includes(l) && !afterPop.includes(l))
+        .forEach(l => l._emitDeactivateCallbacks());
+
+    withoutLayers && withoutLayers
+        .filter(l => !beforePop.includes(l) && afterPop.includes(l))
+        .forEach(l => l._emitActivateCallbacks());
+}
+function pushFrame(frame) {
+    const {withLayers, withoutLayers} = frame;
+
+    const beforePush = currentLayers();
+
+    LayerStack.push(frame);
+
+    withLayers && withLayers
+        .filter(l => !beforePush.includes(l))
+        .forEach(l => l._emitActivateCallbacks());
+
+    withoutLayers && withoutLayers
+        .filter(l => beforePush.includes(l))
+        .forEach(l => l._emitDeactivateCallbacks());
+}
 
 function frameEquals(frame1, frame2) {
     const layerListProperties = ['withLayers', 'withoutLayers'];
@@ -63,6 +107,14 @@ function frameEquals(frame1, frame2) {
         return !arr1 && !arr2; // both do not define the prop is fine, too
     });
 }
+
+/********************************************************************************************************/
+/********************************************************************************************************/
+/********************************************************************************************************/
+
+const {module, test, strictEqual, ok, notStrictEqual, config} = QUnit;
+config.testTimeout = 5000;
+import {promisedTest} from './unittest-utils.js';
 
 const GlobalPromise = window.Promise;
 
@@ -100,6 +152,7 @@ test("frameEquals", function(assert) {
     const w21 = {withLayers:[l2, l1]};
     const w1 = {withLayers:[l1]};
 
+    ok(frameEquals(w12a, w12a), 'frameEquals -1');
     ok(!frameEquals(w12a, base), 'frameEquals 0')
     ok(frameEquals(w12a, w12b), 'frameEquals 1');
     ok(!frameEquals(w12a, wo12), 'frameEquals 2');
@@ -158,6 +211,50 @@ test("Layer callbacks called on restore", function(assert) {
     strictEqual(activeLayers().length, 2, 'stack contains 2 items');
     ok(activeLayers().includes(l1), 'stack did not include l1');
     ok(activeLayers().includes(l2), 'stack did not include l2');
+});
+
+test("pop previous layers on restore (if not present)", function(assert) {
+    const l1 = transcriptLayer('l1');
+    const l2 = transcriptLayer('l2');
+
+    let outerStack = storeLayerStack();
+
+    withLayers([l1], () => {
+        withLayers([l2], () => {
+            const temp = storeLayerStack();
+            transcript.length = 0;
+            replayLayerStack(outerStack);
+            strictEqual(transcript.join(','), 'l2d,l1d');
+            strictEqual(activeLayers().length, 0, 'stack contains no items');
+            transcript.length = 0;
+            replayLayerStack(temp);
+        });
+    });
+});
+
+test("ignore common ancestry on restore for Layer (de-)activation", function(assert) {
+    let innerStack;
+    const l1 = transcriptLayer('l1');
+    const l2 = transcriptLayer('l2');
+
+    withLayers([l1], () => {
+        withLayers([l2], () => {
+            innerStack = storeLayerStack();
+        });
+        const temp = storeLayerStack();
+
+        transcript.length = 0;
+        debugger
+        replayLayerStack(innerStack);
+        strictEqual(transcript.join(','), 'l2a');
+        transcript.length = 0;
+
+        strictEqual(activeLayers().length, 2, 'stack contains 2 items');
+        ok(activeLayers().includes(l1), 'stack did not include l1');
+        ok(activeLayers().includes(l2), 'stack did not include l2');
+
+        replayLayerStack(temp);
+    });
 });
 
 test("basic withLayers test", function(assert) {
