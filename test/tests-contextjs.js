@@ -244,7 +244,6 @@ test("ignore common ancestry on restore for Layer (de-)activation", function(ass
         const temp = storeLayerStack();
 
         transcript.length = 0;
-        debugger
         replayLayerStack(innerStack);
         strictEqual(transcript.join(','), 'l2a');
         transcript.length = 0;
@@ -255,6 +254,32 @@ test("ignore common ancestry on restore for Layer (de-)activation", function(ass
 
         replayLayerStack(temp);
     });
+});
+
+test("(de-)activation considers global layers", function(assert) {
+    let innerStack;
+    const l1 = transcriptLayer('l1');
+    const l2 = transcriptLayer('l2');
+
+    l2.beGlobal();
+
+    withLayers([l1], () => {
+        withoutLayers([l2], () => {
+            innerStack = storeLayerStack();
+        });
+    });
+
+    l2.beNotGlobal();
+
+    const temp = storeLayerStack();
+
+    transcript.length = 0;
+    replayLayerStack(innerStack);
+    strictEqual(transcript.join(','), 'l1a');
+    strictEqual(activeLayers().length, 1, 'stack contains 1 item');
+    ok(activeLayers().includes(l1), 'stack did not include l1');
+
+    replayLayerStack(temp);
 });
 
 test("basic withLayers test", function(assert) {
