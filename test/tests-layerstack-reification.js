@@ -54,6 +54,7 @@ function popFrame() {
 
     const afterPop = currentLayers();
 
+    // #TODO: we should probably .reverse() the list to deactivate the last activated layer first
     withLayers && withLayers
         .filter(l => beforePop.includes(l) && !afterPop.includes(l))
         .forEach(l => l._emitDeactivateCallbacks());
@@ -62,6 +63,7 @@ function popFrame() {
         .filter(l => !beforePop.includes(l) && afterPop.includes(l))
         .forEach(l => l._emitActivateCallbacks());
 }
+
 function pushFrame(frame) {
     const {withLayers, withoutLayers} = frame;
 

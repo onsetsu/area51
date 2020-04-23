@@ -40,6 +40,7 @@ export function withLayers(layers, func) {
     const beforePop = currentLayers();
     cop.LayerStack.pop();
     const afterPop = currentLayers();
+    // #TODO: we should probably .reverse() the list to deactivate the last activated layer first
     layers
       .filter(l => beforePop.includes(l) && !afterPop.includes(l))
       .forEach(l => l._emitDeactivateCallbacks());
@@ -58,6 +59,7 @@ export function withoutLayers(layers, func) {
     const beforePop = currentLayers();
     cop.LayerStack.pop();
     const afterPop = currentLayers();
+    // #TODO: we should probably .reverse() the list to deactivate the last activated layer first
     layers
       .filter(l => !beforePop.includes(l) && afterPop.includes(l))
       .forEach(l => l._emitActivateCallbacks());
