@@ -818,6 +818,13 @@ function switchToZone (targetZone, bEnteringZone) {
     }
     if (targetZone === PSD) return;
 
+    function lifeCycleCallback(fn) {
+        if (typeof fn !== 'function') { return; }
+        fn(currentZone, targetZone)
+    }
+    if (bEnteringZone) { lifeCycleCallback(targetZone.beforeEnter); }
+    if (!bEnteringZone) { lifeCycleCallback(currentZone.beforeLeave); }
+
     PSD = targetZone; // The actual zone switch occurs at this line.
 
     // Snapshot on every leave from global zone.
@@ -850,6 +857,9 @@ function switchToZone (targetZone, bEnteringZone) {
             GlobalPromise.any = targetEnv.any;
         }
     }
+
+    if (!bEnteringZone) { lifeCycleCallback(currentZone.afterLeave); }
+    if (bEnteringZone) { lifeCycleCallback(targetZone.afterEnter); }
 }
 
 function snapShot () {
@@ -946,4 +956,8 @@ function globalError(err, promise) {
 
 export var rejection = DexiePromise.reject;
 
-// export {DexiePromise as DexiePromise};
+export class Zone {
+    static get current() {
+        return DexiePromise.PSD;
+    }
+}

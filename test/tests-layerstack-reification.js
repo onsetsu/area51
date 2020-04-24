@@ -1,14 +1,8 @@
-import DexiePromise from './../src/helpers/promise.js';
+import DexiePromise, {Zone} from './../src/helpers/promise.js';
 
 import {Layer, withLayers, withoutLayers} from './../ContextJS/src/contextjs.js';
 import {activeLayers, currentLayers, LayerStack, proceed, resetLayerStack} from './../ContextJS/src/Layers.js';
 import {decrementExpectedAwaits, incrementExpectedAwaits, newScope} from "../src/helpers/promise.js";
-
-class Zone {
-  static get current() {
-      return DexiePromise.PSD;
-  }
-}
 
 function copyFrame(frame) {
     const resultFrame = {};
