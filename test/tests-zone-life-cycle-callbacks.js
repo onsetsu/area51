@@ -8,10 +8,10 @@ import {decrementExpectedAwaits, incrementExpectedAwaits, newScope} from "../src
 
 const {module, test, strictEqual, ok, notStrictEqual, config} = QUnit;
 config.testTimeout = 5000;
+import { transcript } from './unittest-utils-transcript.js';
 
 const GlobalPromise = window.Promise;
 
-const transcript = []
 module("enter/leave integration", {
     setup: function (assert) {
         transcript.length = 0;
