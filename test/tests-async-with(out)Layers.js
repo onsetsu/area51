@@ -1,17 +1,63 @@
 import DexiePromise, {Zone} from './../src/helpers/promise.js';
 
 import {Layer, withLayers, withoutLayers} from './../ContextJS/src/contextjs.js';
+import * as cop from './../ContextJS/src/Layers.js';
 import {activeLayers, currentLayers, LayerStack, proceed, resetLayerStack} from './../ContextJS/src/Layers.js';
 import {decrementExpectedAwaits, incrementExpectedAwaits, newScope} from "../src/helpers/promise.js";
 
 import { copyFrame, storeLayerStack, replayLayerStack, popFrame, pushFrame, frameEquals} from './../src/layerstack-reification.js';
 
-function withLayersNEW (layers, callback) {
+function withZone(scopeFunc, zoneProps = {}) {
+    let returnValue;
+    try {
+        incrementExpectedAwaits();
 
+        newScope(() => {
+            returnValue = scopeFunc.call();
+        }, zoneProps)
+    } finally {
+        if (returnValue && typeof returnValue.then === 'function') {
+            returnValue.then(() => decrementExpectedAwaits())
+        } else {
+            decrementExpectedAwaits()
+        }
+    }
 }
 
-function withoutLayersNEW (layers, callback) {
+function withFrameZoned (frame, callback) {
+    try {
+        // there is a 1 to 1 relationship between a Layerstack and a zone created with `withFrameZones`
+        // however, we cannot attach the current LayerStack to the Zone because the global Zone is special, e.g.:
+        // we call withLayers from global zone, then the current LayerStack (1) would be attached to the global zone
+        // for later reverting. within the withLayers, we now run withZone(cb, !globalZone!) and in the cb, we again
+        // do withLayers from the global zone. Then we would use the current Layerstack (2), but this would override
+        // the original LayerStack (1)! So, due to the ability to run any code in any Zone at any time, we have this
+        // safety hole! This break works also with any other Zone that is used as a basis to call withLayers from.
+        // Instead, we here use the Stack Frame in which the withLayers takes place to store the original LayerStack (1).
+        // So we have 1 layerStack to return to for each call to with(out)Layers!
+        const layerStackToRevertTo = storeLayerStack();
+        const zonedLayerStack = storeLayerStack();
+        zonedLayerStack.push(frame);
 
+        return withZone(callback, {
+            afterEnter() {
+                replayLayerStack(zonedLayerStack);
+            },
+            afterLeave() {
+                replayLayerStack(layerStackToRevertTo)
+            }
+        });
+    } finally {
+
+    }
+}
+
+function withLayersZoned (layers, callback) {
+    return withLayerFrameZoned({withLayers: layers}, callback);
+}
+
+function withoutLayersZoned (layers, callback) {
+    return withLayerFrameZoned({withoutLayers: layers}, callback);
 }
 
 /********************************************************************************************************/
@@ -38,149 +84,117 @@ module("async with(out)Layers", {
     }
 });
 
-test("frameEquals", function(assert) {
+test("basic withLayersZoned", function(assert) {
     const l1 = new Layer('l1')
     const l2 = new Layer('l2')
 
-    const base = {
-        isStatic: true,
-        toString: function() { return "BaseLayer"; },
-        composition: null
-    };
-    const w12a = {withLayers:[l1, l2]};
-    const w12b = {withLayers:[l1, l2]};
-    const wo12 = {withoutLayers:[l1, l2]};
-    const w21 = {withLayers:[l2, l1]};
-    const w1 = {withLayers:[l1]};
+    withLayersZoned([l1], () => {
+        var layers = currentLayers();
+        ok(layers.includes(l1), 'l1 active 1');
+        ok(!layers.includes(l2), 'l2 not active 1');
 
-    ok(frameEquals(w12a, w12a), 'frameEquals -1');
-    ok(!frameEquals(w12a, base), 'frameEquals 0')
-    ok(frameEquals(w12a, w12b), 'frameEquals 1');
-    ok(!frameEquals(w12a, wo12), 'frameEquals 2');
-    ok(!frameEquals(w12a, w21), 'frameEquals 3');
-    ok(!frameEquals(w12a, w1), 'frameEquals 4');
-});
-
-test("store and replay Layers", function(assert) {
-    let innerStack;
-
-    const l1 = new Layer('l1')
-    const l2 = new Layer('l2')
-
-    withLayers([l1], () => {
-        withLayers([l2], () => {
-            innerStack = storeLayerStack();
+        withLayersZoned([l2], () => {
+            var layers = currentLayers();
+            ok(layers.includes(l1), 'l1 active 2');
+            ok(layers.includes(l2), 'l2 active 2');
         });
+
+        var layers = currentLayers();
+        ok(layers.includes(l1), 'l1 active 3');
+        ok(!layers.includes(l2), 'l2 not active 3');
     });
 
-    replayLayerStack(innerStack);
+    var layers = currentLayers();
+    ok(!layers.includes(l1), 'l1 active 4');
+    ok(!layers.includes(l2), 'l2 active 4');
+});
 
-    strictEqual(activeLayers().length, 2, 'stack contains 2 items');
-    ok(activeLayers().includes(l1), 'stack did not include l1');
-    ok(activeLayers().includes(l2), 'stack did not include l2');
+test("async withLayersZoned", function(assert) {
+    const done = assert.async();
+
+    const l1 = new Layer('l1')
+    const l2 = new Layer('l2')
+
+    withLayersZoned([l1, l2], async () => {
+        await 0;
+        var layers = currentLayers();
+        ok(layers.includes(l1), 'l1 active 1');
+        ok(layers.includes(l2), 'l2 active 1');
+    });
+    var layers = currentLayers();
+    ok(!layers.includes(l1), 'l1 not active 2');
+    ok(!layers.includes(l2), 'l2 not active 2');
+
+    setTimeout(() => {
+        var layers = currentLayers();
+        ok(!layers.includes(l1), 'l1 not active 3');
+        ok(!layers.includes(l2), 'l2 not active 3');
+        done();
+    }, 0);
+});
+
+test("async withLayersZoned indirection over sync callback", function(assert) {
+    const done = assert.async();
+
+    const l1 = new Layer('l1')
+    const l2 = new Layer('l2')
+
+    withLayersZoned([l1, l2], () => {
+        (async () => {
+            await 0;
+            const layers = currentLayers();
+            ok(layers.includes(l1), 'l1 active');
+            ok(layers.includes(l2), 'l2 active');
+        })();
+    });
+
+    setTimeout(done, 0);
 });
 
 test("testing Layer callbacks", function(assert) {
     const l1 = transcript.layer('l1');
     const l2 = transcript.layer('l2');
 
-    withLayers([l1], () => {
-        withLayers([l2], () => {
+    withLayersZoned([l1], () => {
+        withLayersZoned([l2], () => {
         });
     });
 
     strictEqual(transcript.join(','), 'l1a,l2a,l2d,l1d');
-});
-
-test("Layer callbacks called on restore", function(assert) {
-    let innerStack;
-    const l1 = transcript.layer('l1');
-    const l2 = transcript.layer('l2');
-
-    withLayers([l1], () => {
-        withLayers([l2], () => {
-            innerStack = storeLayerStack();
-        });
-    });
-
-    strictEqual(transcript.join(','), 'l1a,l2a,l2d,l1d');
-    transcript.reset();
-
-    replayLayerStack(innerStack);
-    strictEqual(transcript.join(','), 'l1a,l2a');
-
-    strictEqual(activeLayers().length, 2, 'stack contains 2 items');
-    ok(activeLayers().includes(l1), 'stack did not include l1');
-    ok(activeLayers().includes(l2), 'stack did not include l2');
-});
-
-test("pop previous layers on restore (if not present)", function(assert) {
-    const l1 = transcript.layer('l1');
-    const l2 = transcript.layer('l2');
-
-    let outerStack = storeLayerStack();
-
-    withLayers([l1], () => {
-        withLayers([l2], () => {
-            const temp = storeLayerStack();
-            transcript.reset();
-            replayLayerStack(outerStack);
-            strictEqual(transcript.join(','), 'l2d,l1d');
-            strictEqual(activeLayers().length, 0, 'stack contains no items');
-            transcript.reset();
-            replayLayerStack(temp);
-        });
-    });
-});
-
-test("ignore common ancestry on restore for Layer (de-)activation", function(assert) {
-    let innerStack;
-    const l1 = transcript.layer('l1');
-    const l2 = transcript.layer('l2');
-
-    withLayers([l1], () => {
-        withLayers([l2], () => {
-            innerStack = storeLayerStack();
-        });
-        const temp = storeLayerStack();
-
-        transcript.reset();
-        replayLayerStack(innerStack);
-        strictEqual(transcript.join(','), 'l2a');
-        transcript.reset();
-
-        strictEqual(activeLayers().length, 2, 'stack contains 2 items');
-        ok(activeLayers().includes(l1), 'stack did not include l1');
-        ok(activeLayers().includes(l2), 'stack did not include l2');
-
-        replayLayerStack(temp);
-    });
 });
 
 test("(de-)activation considers global layers", function(assert) {
-    let innerStack;
+    const done = assert.async();
+
     const l1 = transcript.layer('l1');
     const l2 = transcript.layer('l2');
 
-    l2.beGlobal();
+    let innerFnCalled = false;
 
-    withLayers([l1], () => {
-        withoutLayers([l2], () => {
-            innerStack = storeLayerStack();
+
+    withLayersZoned([l1], () => {
+        withoutLayersZoned([l2], async () => {
+            ok(activeLayers().includes(l1), 'l1 active 1');
+            ok(!activeLayers().includes(l2), 'l2 not active 1');
+
+            await 0;
+            ok(activeLayers().includes(l1), 'l1 active 2');
+            ok(!activeLayers().includes(l2), 'l2 not active 2');
+
+            innerFnCalled = true;
         });
     });
+    ok(!activeLayers().includes(l1), 'l1 not active 3');
+    ok(!activeLayers().includes(l2), 'l2 not active 3');
 
-    l2.beNotGlobal();
+    l2.beGlobal();
+    ok(!activeLayers().includes(l1), 'l1 not active 4');
+    ok(activeLayers().includes(l2), 'l2 active 4');
 
-    const temp = storeLayerStack();
-
-    transcript.reset();
-    replayLayerStack(innerStack);
-    strictEqual(transcript.join(','), 'l1a');
-    strictEqual(activeLayers().length, 1, 'stack contains 1 item');
-    ok(activeLayers().includes(l1), 'stack did not include l1');
-
-    replayLayerStack(temp);
+    setTimeout(() => {
+        ok(innerFnCalled, 'inner scope func not called by with(out)Layers');
+        done();
+    }, 0);
 });
 
 test("basic withLayers test", function(assert) {
