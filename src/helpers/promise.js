@@ -822,8 +822,11 @@ function switchToZone (targetZone, bEnteringZone) {
         if (typeof fn !== 'function') { return; }
         fn(currentZone, targetZone)
     }
-    if (bEnteringZone) { lifeCycleCallback(targetZone.beforeEnter); }
-    if (!bEnteringZone) { lifeCycleCallback(currentZone.beforeLeave); }
+    if (bEnteringZone) {
+        lifeCycleCallback(targetZone.beforeEnter);
+    } else {
+        lifeCycleCallback(currentZone.beforeLeave);
+    }
 
     PSD = targetZone; // The actual zone switch occurs at this line.
 
@@ -858,8 +861,11 @@ function switchToZone (targetZone, bEnteringZone) {
         }
     }
 
-    if (!bEnteringZone) { lifeCycleCallback(currentZone.afterLeave); }
-    if (bEnteringZone) { lifeCycleCallback(targetZone.afterEnter); }
+    if (bEnteringZone) {
+        lifeCycleCallback(targetZone.afterEnter);
+    } else {
+        lifeCycleCallback(currentZone.afterLeave);
+    }
 }
 
 function snapShot () {
