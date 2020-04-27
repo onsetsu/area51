@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Understanding Dexie Promises</title>
+    <link href="log.css" rel="stylesheet"/>
+    <script src="nav.js"></script>
+</head>
+<body>
+<script type="text/javascript">insertNavigation();</script>
+
+<h1>GitHub Application</h1>
+
+<!--<input type="checkbox" name="show-private" value="show-private" id="show-private">
+<label for="show-private">
+    show private repos
+</label>-->
+<div id="list"></div>
+
+</body>
+<script  type="module" type="text/javascript">
+
+import { withZone, withLayersZoned, withoutLayersZoned} from './../src/dynamic-extent-zoned.js';
+import {Layer, withLayers, withoutLayers} from './../ContextJS/src/contextjs.js';
+import {activeLayers, currentLayers, LayerStack, proceed, resetLayerStack} from './../ContextJS/src/Layers.js';
+
+import token from './github-access-token.js';
+import DexiePromise from "../src/helpers/promise.js";
+const headers = {
+    headers: {
+        Authorization: `token ${token}`
+    }
+};
+
+const GH_API = 'https://api.github.com/';
+
+let accessPrivateRepos = false;
+
+async function ghFetch(...args) {
+    return new DexiePromise(async (resolve, reject) => {
+        await fetch(...args)
+            .then(r => r.json())
+            .then(resolve)
+            .catch(reject)
+        ;
+    })
+}
+class GitHub {
+    static async repos() {
+        let repos;
+        if (accessPrivateRepos) {
+            repos = await ghFetch(GH_API+'user/repos?affiliation=owner&sort=updated&visibility=all&per_page=6&page=1', headers);
+            repos = repos.filter(repo => !repo.name.startsWith('grin'));
+        } else {
+            repos = await ghFetch(GH_API+'users/onsetsu/repos?sort=updated&per_page=2&page=1');
+        }
+        return repos.map(r => new Repository(r));
+    }
+}
+
+class Repository {
+    constructor({private: isPrivate, name, url}) {
+        this.name = name;
+        this.url = url;
+        this.isPrivate = isPrivate;
+    }
+    async commits() {
+        let res;
+        if (this.isPrivate) {
+            res = [{
+                commit: {
+                    author: {
+                        name: 'isPrivate',
+                        date: 'isPrivate'
+                    },
+                    message: 'isPrivate'
+                }
+            }]
+        } else {
+            res = [{
+                commit: {
+                    author: {
+                        name: 'public',
+                        date: 'public'
+                    },
+                    message: 'public'
+                }
+            }]
+            res = await ghFetch(this.url + '/commits?per_page=1&page=1');
+        }
+        return res.map(c => new Commit(c));
+    }
+}
+
+class Commit {
+    constructor(desc = {}, isError = false) {
+        Object.assign(this, desc);
+    }
+}
+
+let displayColor = 'blue';
+function display({ isPrivate, name, url }, { commit: { author, message } }) {
+    function log(x) {
+        let con = document.body.querySelector('#list');
+        if (!con) {
+            document.body.innerHTML += `<div id="list"></div>`;
+            return log(x);
+        }
+
+        con.innerHTML += `<div class="entry" style="color: ${displayColor}">${x}</div>`.replace(/\n/gm, '<br />').replace(/<root>/gm, '&lt;root>');
+    }
+    log(`${isPrivate ? '🔒': '👁️'}${name} (last committed ${author.date.to} by ${author.name}: ${message}`)
+}
+
+async function displayRepos() {
+    const repos = await GitHub.repos()
+    for (let repo of repos) {
+        const commits = await repo.commits()
+        display(repo, commits[0])
+    }
+}
+
+function defaultCommitDesc(label) {
+    return {
+        commit: {
+            author: {
+                name: label,
+                date: label
+            },
+            message: label
+        }
+    }
+}
+const AuthLayer = new Layer('AuthLayer')
+    .refineObject(GitHub, {
+
+    })
+    .refineClass(Repository, {
+        async commits() {
+            let res = [defaultCommitDesc('accessPrivateRepos')]
+//            let res = await ghFetch(this.url + '/commits?per_page=1&page=1', headers);
+            return res.map(c => new Commit(c));
+        }
+    })
+    .onActivate(() => accessPrivateRepos = true)
+    .onDeactivate(() => accessPrivateRepos = false);
+
+(async function run() {
+    await displayRepos();
+    displayColor = 'red';
+    await withLayers([AuthLayer], displayRepos);
+    displayColor = 'green';
+    await withLayersZoned([AuthLayer], displayRepos);
+})();
+
+</script>
+</html>
