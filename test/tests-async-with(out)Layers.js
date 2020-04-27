@@ -1,68 +1,9 @@
 import DexiePromise, {Zone} from './../src/helpers/promise.js';
 
 import {Layer, withLayers, withoutLayers} from './../ContextJS/src/contextjs.js';
-import * as cop from './../ContextJS/src/Layers.js';
 import {activeLayers, currentLayers, LayerStack, proceed, resetLayerStack} from './../ContextJS/src/Layers.js';
-import {decrementExpectedAwaits, incrementExpectedAwaits, newScope} from "../src/helpers/promise.js";
 
-import { copyFrame, storeLayerStack, replayLayerStack, popFrame, pushFrame, frameEquals} from './../src/layerstack-reification.js';
-
-function withZone(scopeFunc, zoneProps = {}) {
-    let returnValue;
-    try {
-        incrementExpectedAwaits();
-
-        newScope(() => {
-            returnValue = scopeFunc.call();
-        }, zoneProps)
-    } finally {
-        if (returnValue && typeof returnValue.then === 'function') {
-            returnValue.then(() => decrementExpectedAwaits())
-        } else {
-            decrementExpectedAwaits()
-        }
-    }
-}
-
-function withFrameZoned (frame, callback) {
-    try {
-        // there is a 1 to 1 relationship between a Layerstack and a zone created with `withFrameZones`
-        // however, we cannot attach the current LayerStack to the Zone because the global Zone is special, e.g.:
-        // we call withLayers from global zone, then the current LayerStack (1) would be attached to the global zone
-        // for later reverting. within the withLayers, we now run withZone(cb, !globalZone!) and in the cb, we again
-        // do withLayers from the global zone. Then we would use the current Layerstack (2), but this would override
-        // the original LayerStack (1)! So, due to the ability to run any code in any Zone at any time, we have this
-        // safety hole! This break works also with any other Zone that is used as a basis to call withLayers from.
-        // Instead, we here use the Stack Frame in which the withLayers takes place to store the original LayerStack (1).
-        // So we have 1 layerStack to return to for each call to with(out)Layers!
-        const layerStackToRevertTo = storeLayerStack();
-        const zonedLayerStack = storeLayerStack();
-        zonedLayerStack.push(frame);
-
-        return withZone(callback, {
-            afterEnter() {
-                replayLayerStack(zonedLayerStack);
-            },
-            afterLeave() {
-                replayLayerStack(layerStackToRevertTo)
-            }
-        });
-    } finally {
-
-    }
-}
-
-function withLayersZoned (layers, callback) {
-    return withLayerFrameZoned({withLayers: layers}, callback);
-}
-
-function withoutLayersZoned (layers, callback) {
-    return withLayerFrameZoned({withoutLayers: layers}, callback);
-}
-
-/********************************************************************************************************/
-/********************************************************************************************************/
-/********************************************************************************************************/
+import { withZone, withLayersZoned, withoutLayersZoned} from './../src/dynamic-extent-zoned.js';
 
 const {module, test, strictEqual, ok, notStrictEqual, config} = QUnit;
 config.testTimeout = 5000;
@@ -197,6 +138,41 @@ test("(de-)activation considers global layers", function(assert) {
     }, 0);
 });
 
+test("(de-)activation considers global layers2", function(assert) {
+    const done = assert.async();
+
+    const l1 = transcript.layer('l1');
+    const l2 = transcript.layer('l2');
+
+    let innerFnCalled = false;
+
+debugger
+    withLayersZoned([l1], () => {
+        withoutLayersZoned([l2], async () => {
+            ok(activeLayers().includes(l1), 'l1 active 1');
+            ok(!activeLayers().includes(l2), 'l2 not active 1');
+
+            await 0;
+            debugger
+            ok(activeLayers().includes(l1), 'l1 active 2');
+            ok(!activeLayers().includes(l2), 'l2 not active 2');
+
+            innerFnCalled = true;
+        });
+    });
+    ok(!activeLayers().includes(l1), 'l1 not active 3');
+    ok(!activeLayers().includes(l2), 'l2 not active 3');
+
+    l2.beGlobal();
+    ok(!activeLayers().includes(l1), 'l1 not active 4');
+    ok(activeLayers().includes(l2), 'l2 active 4');
+
+    setTimeout(() => {
+        ok(innerFnCalled, 'inner scope func not called by with(out)Layers');
+        done();
+    }, 0);
+});
+
 test("basic withLayers test", function(assert) {
     const obj = {
         fn() { return 2; }
@@ -231,23 +207,6 @@ promisedTest ("--promisedTests work--", async () => {
 
 test("sync Dexie works", async (assert) => {
     let done = assert.async();
-
-    function withZone(scopeFunc) {
-        let returnValue;
-        try {
-            const zoneProps = {};
-
-            incrementExpectedAwaits();
-
-            newScope(() => {
-                returnValue = scopeFunc.call();
-            }, zoneProps)
-        } finally {
-            if (returnValue && typeof returnValue.then === 'function') {
-                returnValue.then(() => decrementExpectedAwaits())
-            }
-        }
-    }
 
     const transcript = [];
     function log(arg) { transcript.push(arg); }
