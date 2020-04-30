@@ -56,7 +56,7 @@ export function popFrame() {
 }
 
 export function pushFrame(frame) {
-    const {withLayers, withoutLayers} = frame;
+    const { withLayers, withoutLayers } = frame;
 
     const beforePush = currentLayers();
 
