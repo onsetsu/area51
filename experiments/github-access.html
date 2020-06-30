@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <title>Understanding Dexie Promises</title>
     <link href="log.css" rel="stylesheet"/>
+    <link href="github-access-fonts.css" rel="stylesheet"/>
+    <link href="github-access.css" rel="stylesheet"/>
     <script src="nav.js"></script>
     <style>
         ul#list { list-style-type:none;}
@@ -30,32 +32,115 @@
     </style>
 </head>
 <body>
-<script type="text/javascript">insertNavigation();</script>
+<header>
+    <script type="text/javascript">insertNavigation();</script>
+</header>
 
-<h1>GitHub Application</h1>
+<h1>Zone-based Layer Activation</h1>
+<h2>Context-specific Behavior Adaptations across <br/>Logically-connected Asynchronous Operations</h2>
 
-<!--<input type="checkbox" name="show-private" value="show-private" id="show-private">
-<label for="show-private">
-    show private repos
-</label>-->
+<h3>Example Application: <span class="highlight">Querying Latest GitHub Commits</span></h3>
+
+<p>Hello World</p>
+
+<style>
+    .user-and-token {
+        width:fit-content;
+        display:flex;
+        flex-direction:row;
+        justify-content: space-around;
+    }
+    .input-block {
+        margin: 2px 10px 2px 0px;
+        position: relative;
+        display:flex;
+        flex-direction:column;
+    }
+    .text-label {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        font-size: small;
+    }
+</style>
+<div class="user-and-token">
+    <div class="input-block">
+        <label class='text-label' for="username">username</label>
+        <input id='username' type="text" placeholder="your user name"/>
+    </div>
+    <div class="input-block">
+        <input id='token' type="password" placeholder="your GitHub access token" title="Your token is required to display private repositories. It will not be collected in any manner in this page."/>
+        <label class='text-label' for="token" style="position: absolute;top:100%;left:0;">GitHub access token</label>
+    </div>
+</div>
+
+
+<p>Please select a variant for code execution:</p>
+<div>
+    <input type="radio" id="variantPlain"
+           name="variant" value="plain">
+    <label for="variantPlain">plain: unmodified behavior to access </label>
+</div>
+<div>
+    <input type="radio" id="variantWithLayers"
+           name="variant" value="withLayers">
+    <label for="variantWithLayers">withLayers</label>
+</div>
+<div>
+    <input type="radio" id="variantWithLayersZoned"
+           name="variant" value="withLayersZoned">
+    <label for="variantWithLayersZoned">withLayersZoned</label>
+</div>
+
+
+<style>
+    pre span.keyword {
+        color: #008800;
+        font-weight: bold;
+    }
+    pre.line-numbers {
+        color: gray;
+    }
+</style>
+<div style="background: #ffffff; overflow:auto;width:fit-content;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><table><tr><td style="border-right: 10px solid #FFF;"><pre class='line-numbers' style="margin: 0; line-height: 125%;">1
+2
+3
+4
+5
+6
+7</pre></td><td><pre style="margin: 0; line-height: 125%"><span class="keyword">async function</span> displayRepos() {
+  <span class="keyword">const</span> repos = <span class="keyword">await</span> GitHub.repos()
+  <span class="keyword">for</span> (<span class="keyword">let</span> repo <span class="keyword">of</span> repos) {
+    <span class="keyword">const</span> commits = <span class="keyword">await</span> repo.commits()
+    display(repo, commits[<span style="color: #0000DD; font-weight: bold">0</span>])
+  }
+}
+</pre></td></tr></table></div>
+
+<button id="fetch">Fetch Latest Repositories</button>
+<button id="clear">Clear List</button>
+
 <ul id="list"></ul>
 
 </body>
 <script  type="module" type="text/javascript">
 
-import { withZone, withLayersZoned, withoutLayersZoned} from './../src/dynamic-extent-zoned.js';
-import {Layer, withLayers, withoutLayers} from './../ContextJS/src/contextjs.js';
-import {activeLayers, currentLayers, LayerStack, proceed, resetLayerStack} from './../ContextJS/src/Layers.js';
+import { withZone, withLayersZoned, withoutLayersZoned } from './../src/dynamic-extent-zoned.js';
+import { Layer, withLayers, withoutLayers } from './../ContextJS/src/contextjs.js';
 
-import token from './github-access-token.js';
-import DexiePromise from "../src/helpers/promise.js";
-const headers = {
-    headers: {
-        Authorization: `token ${token}`
-    }
-};
+import DexiePromise, { Zone } from "../src/helpers/promise.js";
 
 const GH_API = 'https://api.github.com/';
+const username = document.querySelector('#username');
+const token = document.querySelector('#token');
+
+function headers() {
+    return {
+        headers: {
+            Authorization: `token ${token.value}`
+        }
+    };
+}
 
 async function ghFetch(...args) {
     return new DexiePromise(async (resolve, reject) => {
@@ -68,7 +153,7 @@ async function ghFetch(...args) {
 
 class GitHub {
     static async repos() {
-        let repos = await ghFetch(GH_API+'users/onsetsu/repos?sort=updated&per_page=5&page=1');
+        let repos = await ghFetch(`${GH_API}users/${username.value}/repos?sort=updated&per_page=2&page=2`); // #TODO: 5 1
         return repos.map(r => new Repository(r));
     }
 }
@@ -111,10 +196,14 @@ class Commit {
     }
 }
 
-let displayColor = 'blue';
+Zone.current.displayColor = 'black';
+
+function getList() {
+    return document.body.querySelector('#list');
+}
+
 function display({ isPrivate, name, url }, commit) {
-    const con = document.body.querySelector('#list');
-    con.innerHTML += `<li class="${isPrivate ? 'private':''}" style="color: ${displayColor}"><span class="elli">${name} ${commit}</span></li>`
+    getList().innerHTML += `<li class="${isPrivate ? 'private':''}" style="color: ${Zone.current.displayColor}"><span class="elli">${name} ${commit}</span></li>`
         .replace(/\n/gm, '<br />').replace(/<root>/gm, '&lt;root>');
 }
 
@@ -126,41 +215,88 @@ async function displayRepos() {
     }
 }
 
-function defaultCommitDesc(label) {
-    return {
-        commit: {
-            author: {
-                name: label,
-                date: label
-            },
-            message: label
-        }
-    }
-}
-
 const AuthLayer = new Layer('AuthLayer')
     .refineObject(GitHub, {
         async repos() {
-            let repos = await ghFetch(GH_API+'user/repos?affiliation=owner&sort=updated&visibility=all&per_page=6&page=1', headers);
+            let repos = await ghFetch(GH_API+'user/repos?affiliation=owner&sort=updated&visibility=all&per_page=2&page=2', headers()); // #TODO: 6 1
             repos = repos.filter(repo => !repo.name.startsWith('grin'));
             return repos.map(r => new Repository(r));
         }
     })
     .refineClass(Repository, {
         async commits() {
-            // let res = [defaultCommitDesc('accessPrivateRepos')]
-           let res = await ghFetch(this.url + '/commits?per_page=1&page=1', headers);
+            const res = await ghFetch(this.url + '/commits?per_page=1&page=1', headers());
             return res.map(c => new Commit(c));
         }
     });
 
-(async function run() {
-    await displayRepos();
-    displayColor = 'red';
-    await withLayers([AuthLayer], displayRepos);
-    displayColor = 'green';
-    await withLayersZoned([AuthLayer], displayRepos);
-})();
+const variantSelector = 'input[name=variant]';
+
+function getCurrentVariant() {
+    const checkedVariant = Array.from(document.querySelectorAll(variantSelector)).find(i => i.checked);
+    return checkedVariant && checkedVariant.value;
+}
+
+function setCurrentVariant(value) {
+    const inputToSelect = document.querySelector(variantSelector + `[value=${value}]`);
+
+    if (!inputToSelect) {
+        alert(`value ${value} cannot be selected.`);
+        return;
+    }
+
+    document.querySelectorAll(variantSelector).forEach(i => i.checked = false);
+    inputToSelect.checked = true;
+}
+
+const COLORS = ['#0070C0', '#ED7D31', '#00B050'];
+let COLOR_INDEX = 0;
+
+const codeVariants = {
+    async plain() {
+        await displayRepos();
+    },
+    async withLayers() {
+        await withLayers([AuthLayer], displayRepos);
+    },
+    async withLayersZoned() {
+        await withLayersZoned([AuthLayer], displayRepos);
+    },
+}
+
+function withNextColor(callback) {
+    const displayColor = COLORS[COLOR_INDEX];
+    COLOR_INDEX = (COLOR_INDEX + 1) % COLORS.length;
+
+    return withZone(callback, { displayColor });
+}
+
+async function fetchRepositories() {
+    const variant = getCurrentVariant();
+    if (!variant) {
+        alert('No variant chosen!');
+        return;
+    }
+
+    withNextColor(codeVariants[variant]);
+}
+
+document.querySelector('#fetch').addEventListener('click', fetchRepositories);
+document.querySelector('#clear').addEventListener('click', () => getList().innerHTML = '');
+
+username.addEventListener('input', e => localStorage.setItem('username', e.target.value));
+username.value = localStorage.getItem('username') || 'onsetsu';
+
+token.addEventListener('input', e => localStorage.setItem('token', e.target.value));
+token.value = localStorage.getItem('token') || '';
+
+document.querySelectorAll(variantSelector).forEach(i => {
+    i.addEventListener('change', e => localStorage.setItem('variant', i.value));
+});
+setCurrentVariant(localStorage.getItem('variant') || 'plain')
 
 </script>
+<footer>
+    <p><em>CSS/Design:</em> Toni Mattis (<a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a>)</p>
+</footer>
 </html>

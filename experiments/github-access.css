@@ -1,0 +1,494 @@
+/*
+This stylesheet is licensed under the
+CreativeCommons Attribution-ShareAlike 4.0 License.
+
+(CC BY-SA) 2017-2018 | Toni Mattis
+*/
+
+body {
+    font-family: "LatoLatinWeb", sans-serif;
+    margin-top: 2em;
+    margin-left: 15%;
+    margin-right: 15%;
+    max-width: 800px;
+    font-size: 12pt;
+    font-style: normal;
+    line-height: 1.5em;
+}
+
+@media(min-width: 1428px) {
+    body {
+        margin-left: auto;
+        margin-right: auto;
+    }
+}
+
+/* -------------------------------------------------------------------------
+ * headings
+ * ------------------------------------------------------------------------ */
+
+h1 {
+    font-size: 24pt;
+    font-weight: 900;
+    margin-top: 1.2em;
+    line-height: 1em;
+}
+
+h1#me {
+    margin-top: .7em;
+    margin-bottom: -0.5em;
+}
+
+h2 {
+    font-size: 18pt;
+    font-family: "LatoLatinWeb", sans-serif;
+    font-weight: 900;
+}
+
+h3 {
+    font-size: 18pt;
+    font-family: "LatoLatinWeb", sans-serif;
+    font-weight: 200;
+}
+
+h4 {
+    font-size: 16pt;
+    font-family: "LatoLatinWeb", sans-serif;
+    font-weight: 200;
+}
+
+h4 em {
+    font-weight: 600;
+}
+
+
+/* -------------------------------------------------------------------------
+ * emphasis
+ * ------------------------------------------------------------------------ */
+
+em {
+    font-weight: 900;
+    font-style: normal;
+}
+
+dl {
+    width: 100%;
+    display: table;
+}
+
+dt {
+    font-weight: 900;
+    width: 25%;
+    float: left;
+    margin-bottom: 0.25em;
+}
+
+dt > em {
+    font-weight: 400;
+}
+
+dd {
+    width: 75%;
+    float: left;
+    margin-left: 0;
+    margin-bottom: 0.5em;
+}
+
+.info {
+    color: #808080;
+    font-weight: 200;
+}
+
+/* -------------------------------------------------------------------------
+ * links
+ * ------------------------------------------------------------------------ */
+
+a {
+    color: #808080;
+    transition: color 0.2s;
+    border-bottom-width: 1px;
+    text-decoration: none;
+    border-bottom-style: dotted;
+    border-bottom-color: #c0c0c0;
+}
+
+a:hover {
+    color: #ff8300;
+    text-decoration: none;
+    border-bottom-color: #ff8300;
+}
+
+nav a {
+    transition: color 0.2s, border-bottom-color 0.2s;
+    text-decoration: none;
+    border-bottom-color: transparent;
+}
+
+nav a:hover {
+    text-decoration: none;
+}
+
+.sep:before {
+    content: "|";
+    margin-left: 0.33em;
+    margin-right: 0.33em;
+    color: #c0c0c0;
+}
+
+/* -------------------------------------------------------------------------
+ * lists (in <main>)
+ * ------------------------------------------------------------------------ */
+
+main ul {
+    margin-top: 0;
+    padding-left: 1em;
+}
+
+main li {
+    display: block;
+}
+
+main ul li:before {
+    content: 'Â»';
+    margin-left: -.8em;
+    margin-right: 0.35em;
+    color: #ff8300;
+    font-size: 120%;
+    font-weight: 400;
+}
+
+main ul ul li:before {
+    content: 'â€º';
+    margin-left: -.66em;
+    margin-right: 0.35em;
+    color: #ff8300;
+    font-size: 120%;
+    font-weight: 200;
+}
+
+
+main ol {
+    counter-reset: list-index;
+    list-style: none;
+}
+
+main ol li {
+    counter-increment: list-index;
+    margin-bottom: 0.5em;
+}
+
+main ol li:before {
+    font-size: 100%;
+    margin-left: -2.7em;
+    margin-right: .7em;
+    width: 2em;
+    content: "[" counter(list-index) "]";
+    color: #ff8300;
+    text-align: right;
+    display: inline-block;
+}
+
+
+/* -------------------------------------------------------------------------
+ * header and footer
+ * ------------------------------------------------------------------------ */
+
+header {
+    margin-bottom: .5em;
+    border-bottom-style: dotted;
+    border-bottom-width: 2px;
+    border-bottom-color: #c0c0c0;
+}
+
+header nav {
+    text-align: right;
+}
+
+header h1 {
+    float: left;
+    margin-top: 0;
+    color: #808080;
+    font-weight: 200;
+}
+
+
+nav ul {
+    font-size: 14pt;
+    color: #ff8300;
+    padding-left: 0;
+    margin-bottom: 1em;
+}
+
+nav li {
+    display: inline-block;
+    margin-right: .5em;
+    margin-bottom: 0.3em;
+    font-weight: 200;
+}
+
+footer {
+    border-top-style: dotted;
+    border-top-color: #c0c0c0;
+    border-top-width: 2px;
+
+    margin-top: 1em;
+    padding-top: 1em;
+    font-size: 10pt;
+
+    line-height: 1.15em;
+
+    color: #808080;
+}
+
+address {
+    font-style: normal;
+    margin-left: 0.5em;
+    font-weight: 200;
+}
+
+/* -------------------------------------------------------------------------
+ * figures
+ * ------------------------------------------------------------------------ */
+
+main {
+    counter-reset: fig-index;
+}
+
+figure {
+    vertical-align: top;
+    display: inline-block;
+    margin: 0;
+    padding-top: 0.5em;
+    padding-bottom: 0.5em;
+    padding-right: 20px;
+    max-width: 350px;
+}
+
+figure img {
+    border-width: 1px;
+    border-style: solid;
+    border-color: #c0c0c0;
+    /*border-radius: 12px;*/
+    box-shadow: 2px 2px 8px #c0c0c0;
+    max-width: 350px;
+}
+
+
+figure > a {
+    border-bottom-style: none;
+}
+
+figure a img {
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+figure a:hover img {
+    border-color: #ff8300;
+    box-shadow: 2px 2px 8px #ffc680;
+}
+
+figcaption {
+    counter-increment: fig-index;
+}
+
+figcaption:before {
+    font-size: 100%;
+    margin-right: .3em;
+    content: "â€¹" counter(fig-index) "â€º";
+    color: #ff8300;
+    text-align: right;
+    display: inline-block;
+}
+
+
+.clearfix {
+    clear: both;
+}
+
+/* -------------------------------------------------------------------------
+ * the location tag
+ * ------------------------------------------------------------------------ */
+
+.location {
+    display: inline-block;
+    float: right;
+    font-size: 16pt;
+    font-weight: 200;
+    color: #c0c0c0;
+    margin-top: -0.6em;
+}
+
+.location .city {
+    font-weight: 600;
+    display: inline;
+}
+
+.location .country {
+    font-weight: 200;
+    display: inline;
+}
+
+.location:before {
+    vertical-align: bottom;
+    display: inline-block;
+    background: url("images/pin.svg") no-repeat 0 0;
+    width: 1em;
+    height: 1.5em;
+    margin-right: 0.5em;
+    margin-left: 2em;
+    content: " ";
+    background-size: 90%;
+}
+
+/* -------------------------------------------------------------------------
+ * small window
+ * ------------------------------------------------------------------------ */
+
+@media (max-width: 650px) {
+    body {
+        margin-left: 1em;
+        margin-right: 1em;
+    }
+
+    dt {
+        width: 100%;
+    }
+
+    dd {
+        width: 100%;
+    }
+
+    .location {
+        font-size: 12pt;
+        float: none;
+        margin-top: 1.5em;
+    }
+
+    .location:before {
+        margin-left: 0.5em;
+    }
+}
+
+
+/* -------------------------------------------------------------------------
+ * mobile
+ * ------------------------------------------------------------------------ */
+
+@media (max-width: 400px) {
+    nav li {
+        display: block;
+        margin: 0;
+    }
+
+    nav li:after {
+        font-size: 120%;
+        content: "â€¹";
+        margin-left: 0.3em;
+    }
+
+    .sep:before {
+        content: "";
+    }
+
+    ul ul li {
+        margin-left: -.5em;
+    }
+
+    figure {
+        width: 100%;
+    }
+
+    figure img {
+        width: 100%;
+    }
+
+    header {
+        border-bottom-style: none;
+        padding-bottom: .3em;
+        margin-top: -1em;
+    }
+}
+
+
+/* -------------------------------------------------------------------------
+ * my mail address obscured from bots
+ * ------------------------------------------------------------------------ */
+
+.mailaddress:after {
+    content: "toni" "\2e" "mattis" "\40" "hpi" "\2e" "uni-potsdam" "\2e" "de"
+}
+
+/* -------------------------------------------------------------------------
+ * star rating
+ * ------------------------------------------------------------------------ */
+
+.star0:before {
+    content: "\2606\2606\2606\2606\2606";
+    color: #808080;
+    margin-left: 0.33em;
+    margin-right: 0.33em;
+}
+
+.star1:before {
+    content: "\2605\2606\2606\2606\2606";
+    color: #808080;
+    margin-left: 0.33em;
+    margin-right: 0.33em;
+    font-size: 100%;
+}
+
+.star2:before {
+    content: "\2605\2605\2606\2606\2606";
+    color: #808080;
+    margin-left: 0.33em;
+    margin-right: 0.33em;
+    font-size: 100%;
+}
+
+.star3:before {
+    content: "\2605\2605\2605\2606\2606";
+    color: #808080;
+    margin-left: 0.33em;
+    margin-right: 0.33em;
+    font-size: 100%;
+}
+
+
+.star4:before {
+    content: "\2605\2605\2605\2605\2606";
+    color: #808080;
+    margin-left: 0.33em;
+    margin-right: 0.33em;
+    font-size: 100%;
+}
+
+.star5:before {
+    content: "\2605\2605\2605\2605\2605";
+    color: #808080;
+    margin-left: 0.33em;
+    margin-right: 0.33em;
+    font-size: 100%;
+}
+
+
+.education:before {
+    content: "ðŸŽ“";
+    margin-left: 0;
+    margin-right: .3em;
+}
+
+/* -------------------------------------------------------------------------
+ * star rating
+ * ------------------------------------------------------------------------ */
+
+
+
+pre {
+    font-family: "Fira Code", sans-serif;
+    font-weight: 200;
+}
+
+.highlight {
+    color: #ff8300;
+    font-weight: bold;
+}
