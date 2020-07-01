@@ -488,6 +488,12 @@ pre {
     font-weight: 200;
 }
 
+.inline-code {
+    font-family: "Fira Code", sans-serif;
+    font-weight: normal;
+    color: grey;
+}
+
 .highlight {
     color: #ff8300;
     font-weight: bold;

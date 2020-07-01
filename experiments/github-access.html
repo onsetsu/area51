@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Understanding Dexie Promises</title>
+    <title>Zone-based Layer Activation - GitHub Example</title>
     <link rel="icon" href="onsetsu-icon.png" type="image/png">
     <link href="log.css" rel="stylesheet"/>
     <link href="github-access-fonts.css" rel="stylesheet"/>
@@ -41,12 +41,120 @@
 
 <h3>Context-specific Behavior Adaptations across <br/>Logically-connected Asynchronous Operations</h3>
 
-<p>Zone-based Layer Activation is a variant of dynamic extent that applies a behavior adaptation not only for the duration of a message send but also for all <span class="highlight">asynchronous</span> operations scheduled within the message send, transitively.</p>
+<p>
+    <a target="_blank" href="https://www.hpi.uni-potsdam.de/hirschfeld/publications/media/CostanzaHirschfeld_2005_LanguageConstructsForContextOrientedProgrammingAnOverviewOfContextL_AuthorsVersionAcm.pdf">Context-oriented Programming (COP)</a> directly addresses context
+    variability by providing dedicated language concepts: <span class="highlight">layers</span>, units
+    of modularity, store context-dependent behavior. During runtime,
+    layers can be applied dynamically depending on the current context
+    of the program.
+</p>
 
-<hr/>
+<p>
+    Various <span class="highlight">activation means</span> for layers have been proposed.
+    One of the most frequently used
+    activation means is <a target="_blank" href="https://www.hpi.uni-potsdam.de/hirschfeld/publications/media/AppeltauerHirschfeldHauptLinckePerscheid_2009_AComparisonOfContextOrientedProgrammingLanguages_AcmDL.pdf">dynamic extent</a>. Using dynamic extent developers
+    may activate layers for the duration of a message
+    send. Dynamic extent ensures to automatically deactivate the corresponding
+    layers at the end of the message send.
+</p>
+
+<p>
+    The design of Context-oriented Programming in general and dynamic extent in particular
+    assume a synchronous execution model. In recent years, however,
+    asynchronous programming became popular, especially in context
+    of UI programming and client-server communication. In an asynchronous
+    programming model the execution of a method may be
+    postponed and resume execution at some later point in time.
+</p>
+
+<p>
+    While asynchronous semantics seemingly avoid a "callback hell", these execution models break with
+    the linear control flow assumed by most Context-oriented Programming implementations.
+    While we define dynamic extent through lexical scoping, asynchronous
+    execution is not bound by the linear fashion of executing
+    nested functions. Instead, execution scopes may overlap and interleave
+    in time. As a result, the safe semantics of the dynamic extent
+    activation means cannot be guaranteed anymore: layers might be
+    missing from the current layer composition in a postponed asynchronous
+    task, or might leak to code not intended to run with a
+    certain behavior adaptation. Neither of the aforementioned cases
+    is desirable.
+</p>
+
+<p>
+    Zone-based Layer Activation (<a href="javascript:;">Paper to appear</a>) is a variant of dynamic extent that applies a behavior adaptation not only for the duration of a message send but also for all <span class="highlight">asynchronous</span> operations scheduled within the message send, transitively.
+    As a consequence, Zone-based Layer Activation provides a sufficient integration of dynamic extent-style context specification with asynchronous execution models.
+
+<!--
+    <a target="_blank" href="https://dart.dev/articles/archive/zones">Zones</a> describe a persistent
+    context across logically-connected asynchronous operations. Additionally,
+    zones may control asynchronous behavior by observing
+    and intercepting the execution of asynchronous tasks.
+-->
+</p>
+<p>
+</p>
+
+<p>
+    We provide the library <a target="_blank" href="https://github.com/onsetsu/area51">area51</a> as an extension to ContextJS that supports Zone-based Layer Activation.
+</p>
+
 <h4>Example Application: <span class="highlight">Querying Latest GitHub Commits</span></h4>
 
-<p>This page exemplifies a usage scenario for Zone-based Layer Activation: Adapting the behavior of a program that queries the latest commits of a user on GitHub and performing further queries to enhance the displayed repositories with the time and message of the respective latest commit. You can query any one's public GitHub repositories by filling in the respective username:</p>
+<p>
+    This page exemplifies a usage scenario for Zone-based Layer Activation:
+    the following program queries the latest commits of a user on GitHub and performs further queries to enhance the displayed repositories with the time and message of the respective latest commit.
+</p>
+
+<style>
+pre span.keyword {
+    color: #008800;
+    font-weight: bold;
+}
+pre.line-numbers {
+    color: gray;
+}
+</style>
+  <div style="background: #ffffff; overflow:auto;width:fit-content;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><table><tr><td style="border-right: 10px solid #FFF;"><pre class='line-numbers' style="margin: 0; line-height: 125%;">1
+2
+3
+4
+5
+6
+7</pre></td><td><pre style="margin: 0; line-height: 125%"><span class="keyword">async function</span> displayRepos() {
+  <span class="keyword">const</span> repos = <span class="keyword">await</span> GitHub.repos()
+  <span class="keyword">for</span> (<span class="keyword">let</span> repo <span class="keyword">of</span> repos) {
+    <span class="keyword">const</span> commits = <span class="keyword">await</span> repo.commits()
+    display(repo, commits[<span style="color: #0000DD; font-weight: bold">0</span>])
+  }
+}
+</pre></td></tr></table></div>
+
+<p>
+    Using this base behavior, you can query any one's public GitHub repositories by filling in the respective username.
+    As a behavior variation, the <span class="inline-code">AuthLayer</span> allows access to private repositories given a GitHub access token.</p>
+
+<!--The above code can be executed in any of the three provided variants:-->
+
+<p>Please select a variant for code execution:
+<div>
+    <input type="radio" id="variantPlain"
+           name="variant" value="plain">
+    <label for="variantPlain"><span class="highlight">base behavior (<span class="inline-code">displayRepos()</span>)</span>  </label>
+<!--    unmodified behavior to access the most recently changes repositories of a user.-->
+</div>
+<div>
+    <input type="radio" id="variantWithLayers"
+           name="variant" value="withLayers">
+    <label for="variantWithLayers"><span class="highlight">dynamic extent (<span class="inline-code">withLayers([AuthLayer], displayRepos)</span>)</span></label>
+</div>
+<div>
+    <input type="radio" id="variantWithLayersZoned"
+           name="variant" value="withLayersZoned">
+    <label for="variantWithLayersZoned"><span class="highlight">asynchronous dynamic extent (<span class="inline-code">withLayersZoned([AuthLayer], displayRepos)</span>)</span></label>
+</div>
+</p>
+
 
 <style>
     .user-and-token {
@@ -75,56 +183,11 @@
     </div>
     <div class="input-block">
         <input id='token' type="password" placeholder="your GitHub access token" title="Your token is required to display private repositories. It will not be collected in any manner in this page."/>
-        <label class='text-label' for="token" style="position: absolute;top:100%;left:0;">GitHub access token</label>
+        <label class='text-label' for="token">GitHub access token</label>
     </div>
 </div>
 
 <p>You token is only required when you want to access your private repositories.</p>
-
-<style>
-    pre span.keyword {
-        color: #008800;
-        font-weight: bold;
-    }
-    pre.line-numbers {
-        color: gray;
-    }
-</style>
-<div style="background: #ffffff; overflow:auto;width:fit-content;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><table><tr><td style="border-right: 10px solid #FFF;"><pre class='line-numbers' style="margin: 0; line-height: 125%;">1
-2
-3
-4
-5
-6
-7</pre></td><td><pre style="margin: 0; line-height: 125%"><span class="keyword">async function</span> displayRepos() {
-  <span class="keyword">const</span> repos = <span class="keyword">await</span> GitHub.repos()
-  <span class="keyword">for</span> (<span class="keyword">let</span> repo <span class="keyword">of</span> repos) {
-    <span class="keyword">const</span> commits = <span class="keyword">await</span> repo.commits()
-    display(repo, commits[<span style="color: #0000DD; font-weight: bold">0</span>])
-  }
-}
-</pre></td></tr></table></div>
-
-The above code can be executed in any of the three provided variants:
-
-
-<p>Please select a variant for code execution:</p>
-<div>
-    <input type="radio" id="variantPlain"
-           name="variant" value="plain">
-    <label for="variantPlain"><span class="highlight">plain:</span> unmodified behavior to access the most recently changes repositories of a user.</label>
-</div>
-<div>
-    <input type="radio" id="variantWithLayers"
-           name="variant" value="withLayers">
-    <label for="variantWithLayers"><span class="highlight">withLayers:</span></label>
-</div>
-<div>
-    <input type="radio" id="variantWithLayersZoned"
-           name="variant" value="withLayersZoned">
-    <label for="variantWithLayersZoned"><span class="highlight">withLayersZoned:</span></label>
-</div>
-
 
 <button id="fetch">Fetch Latest Repositories</button>
 <button id="clear">Clear List</button>
@@ -306,6 +369,6 @@ setCurrentVariant(localStorage.getItem('variant') || 'plain')
 
 </script>
 <footer>
-    <p><em>CSS/Design:</em> Toni Mattis (<a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a>)</p>
+    <p><em>CSS/Design:</em> Stefan Ramson, Toni Mattis (<a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a>)</p>
 </footer>
 </html>
