@@ -37,11 +37,15 @@
 </header>
 
 <h1>Zone-based Layer Activation</h1>
-<h2>Context-specific Behavior Adaptations across <br/>Logically-connected Asynchronous Operations</h2>
 
-<h3>Example Application: <span class="highlight">Querying Latest GitHub Commits</span></h3>
+<h3>Context-specific Behavior Adaptations across <br/>Logically-connected Asynchronous Operations</h3>
 
-<p>Hello World</p>
+<p>Zone-based Layer Activation is a variant of dynamic extent that applies a behavior adaptation not only for the duration of a message send but also for all <span class="highlight">asynchronous</span> operations scheduled within the message send, transitively.</p>
+
+<hr/>
+<h4>Example Application: <span class="highlight">Querying Latest GitHub Commits</span></h4>
+
+<p>This page exemplifies a usage scenario for Zone-based Layer Activation: Adapting the behavior of a program that queries the latest commits of a user on GitHub and performing further queries to enhance the displayed repositories with the time and message of the respective latest commit. You can query any one's public GitHub repositories by filling in the respective username:</p>
 
 <style>
     .user-and-token {
@@ -74,24 +78,7 @@
     </div>
 </div>
 
-
-<p>Please select a variant for code execution:</p>
-<div>
-    <input type="radio" id="variantPlain"
-           name="variant" value="plain">
-    <label for="variantPlain">plain: unmodified behavior to access </label>
-</div>
-<div>
-    <input type="radio" id="variantWithLayers"
-           name="variant" value="withLayers">
-    <label for="variantWithLayers">withLayers</label>
-</div>
-<div>
-    <input type="radio" id="variantWithLayersZoned"
-           name="variant" value="withLayersZoned">
-    <label for="variantWithLayersZoned">withLayersZoned</label>
-</div>
-
+<p>You token is only required when you want to access your private repositories.</p>
 
 <style>
     pre span.keyword {
@@ -116,6 +103,27 @@
   }
 }
 </pre></td></tr></table></div>
+
+The above code can be executed in any of the three provided variants:
+
+
+<p>Please select a variant for code execution:</p>
+<div>
+    <input type="radio" id="variantPlain"
+           name="variant" value="plain">
+    <label for="variantPlain"><span class="highlight">plain:</span> unmodified behavior to access the most recently changes repositories of a user.</label>
+</div>
+<div>
+    <input type="radio" id="variantWithLayers"
+           name="variant" value="withLayers">
+    <label for="variantWithLayers"><span class="highlight">withLayers:</span></label>
+</div>
+<div>
+    <input type="radio" id="variantWithLayersZoned"
+           name="variant" value="withLayersZoned">
+    <label for="variantWithLayersZoned"><span class="highlight">withLayersZoned:</span></label>
+</div>
+
 
 <button id="fetch">Fetch Latest Repositories</button>
 <button id="clear">Clear List</button>
@@ -153,7 +161,7 @@ async function ghFetch(...args) {
 
 class GitHub {
     static async repos() {
-        let repos = await ghFetch(`${GH_API}users/${username.value}/repos?sort=updated&per_page=2&page=2`); // #TODO: 5 1
+        let repos = await ghFetch(`${GH_API}users/${username.value}/repos?sort=updated&per_page=5&page=1`); // #TODO: 5 1
         return repos.map(r => new Repository(r));
     }
 }
@@ -218,7 +226,7 @@ async function displayRepos() {
 const AuthLayer = new Layer('AuthLayer')
     .refineObject(GitHub, {
         async repos() {
-            let repos = await ghFetch(GH_API+'user/repos?affiliation=owner&sort=updated&visibility=all&per_page=2&page=2', headers()); // #TODO: 6 1
+            let repos = await ghFetch(GH_API+'user/repos?affiliation=owner&sort=updated&visibility=all&per_page=6&page=1', headers());
             repos = repos.filter(repo => !repo.name.startsWith('grin'));
             return repos.map(r => new Repository(r));
         }
