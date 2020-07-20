@@ -256,15 +256,24 @@ class Commit {
         if (this.isError) {
             return `(<span class="error">resource not available!</span>)`;
         }
-        const { commit: { author, message } } = this;
-        const date = author.date.toString()
-            .replace(/-/g, '.')
-            .replace('T', ' ')
-            .replace(/\:\d\dZ$/, '')
-        const m = message.length > 30 ?
+        const date = this.getDate()
+        const message = this.getMessage();
+        return `${date} ${message}`;
+    }
+
+    getMessage() {
+        const message = this.commit.message;
+        return message.length > 30 ?
             message.substr(0, 30) + '...' :
             message;
-        return `${date} ${m}`;
+    }
+
+    getDate() {
+        const author = this.commit.author;
+        return author.date.toString()
+            .replace(/-/g, '.')
+            .replace('T', ' ')
+            .replace(/\:\d\dZ$/, '');
     }
 }
 
@@ -275,7 +284,7 @@ function getList() {
 }
 
 function display({ isPrivate, name, url }, commit) {
-    getList().innerHTML += `<li class="${isPrivate ? 'private':''}" style="color: ${Zone.current.displayColor}"><span class="elli">${name} ${commit}</span></li>`
+    getList().innerHTML += `<li class="${isPrivate ? 'private':''}" style="color: ${Zone.current.displayColor}"><span class="elli"><span style="font-size: x-small">${commit.getDate()}</span> <span style="font-weight: bold">${name}</span> ${commit.getMessage()}</span></li>`
         .replace(/\n/gm, '<br />').replace(/<root>/gm, '&lt;root>');
 }
 
@@ -321,7 +330,7 @@ function setCurrentVariant(value) {
     inputToSelect.checked = true;
 }
 
-const COLORS = ['#0070C0', '#ED7D31', '#00B050'];
+const COLORS = ['#7F7F7F', '#0070C0', '#ED7D31', '#00B050'];
 let COLOR_INDEX = 0;
 
 const codeVariants = {
