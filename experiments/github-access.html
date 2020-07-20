@@ -252,16 +252,18 @@ class Commit {
     constructor(desc = {}, isError = false) {
         Object.assign(this, desc);
     }
+
     toString() {
-        if (this.isError) {
-            return `(<span class="error">resource not available!</span>)`;
-        }
         const date = this.getDate()
         const message = this.getMessage();
         return `${date} ${message}`;
     }
 
     getMessage() {
+        if (this.isError) {
+            return `(<span class="error">resource not available!</span>)`;
+        }
+
         const message = this.commit.message;
         return message.length > 30 ?
             message.substr(0, 30) + '...' :
@@ -269,6 +271,10 @@ class Commit {
     }
 
     getDate() {
+        if (this.isError) {
+            return `0000.00.00 00:00`;
+        }
+
         const author = this.commit.author;
         return author.date.toString()
             .replace(/-/g, '.')

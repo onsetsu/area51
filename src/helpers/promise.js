@@ -908,17 +908,17 @@ function enqueueNativeMicroTask (job) {
 }
 
 function nativeAwaitCompatibleWrap(fn, zone, possibleAwait) {
-    console.log('nativeAwaitCompatibleWrap')
+    if (zonePrintF) console.log('nativeAwaitCompatibleWrap')
     return typeof fn !== 'function' ? fn : function () {
         var outerZone = PSD;
-        console.group('nativeAwaitCompatibleWrapped')
+        if (zonePrintF) console.group('nativeAwaitCompatibleWrapped')
         if (possibleAwait) incrementExpectedAwaits();
         switchToZone(zone, true);
         try {
             return fn.apply(this, arguments);
         } finally {
             switchToZone(outerZone, false);
-            console.groupEnd();
+            if (zonePrintF) console.groupEnd();
         }
     };
 }
